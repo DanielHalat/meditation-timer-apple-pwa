@@ -7,26 +7,22 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Meditation">
-  <meta name="application-version" content="v5">
+  <meta name="application-version" content="v6">
   <meta name="format-detection" content="telephone=no">
   <title>Meditation Timer</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=5">
-  <script type="module" src="./app.js?v=5"></script>
+  <link rel="stylesheet" href="./styles.css?v=6">
+  <script type="module" src="./app.js?v=6"></script>
 </head>
 <body data-theme="green">
   <main class="app" id="app">
-    <div class="ambient ambient-corner" aria-hidden="true"></div>
-    <div class="ambient ambient-lower" aria-hidden="true"></div>
-    <div class="ambient-line" aria-hidden="true"></div>
-
     <header class="app-header">
       <strong>meditation timer</strong>
-      <button class="icon-button theme-button" id="themeButton" type="button" aria-label="Change appearance" aria-expanded="false">
-        <img src="./assets/brush_icon.png" alt="">
-      </button>
     </header>
+    <button class="icon-button theme-button" id="themeButton" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="themePopover">
+      <span class="settings-menu-icon" aria-hidden="true"></span>
+    </button>
 
     <section class="session-block" id="sessionBlock" aria-live="polite">
       <div class="session-label">CURRENT PRESET</div>
@@ -55,21 +51,19 @@
         <div class="preset-actions">
           <button class="pill-button" id="managePresets" type="button">EDIT</button>
           <button class="icon-button add-button" id="addPreset" type="button" aria-label="Add preset">+</button>
+          <span class="add-label" aria-hidden="true">NEW</span>
         </div>
       </div>
       <div class="preset-list" id="presetList"></div>
     </section>
 
-    <div class="popover" id="themePopover" hidden>
-      <div class="eyebrow">APPEARANCE</div>
-      <p>Choose a visual profile</p>
+    <section class="settings-sheet" id="themePopover" hidden aria-label="Settings">
+      <div class="settings-section-label">CHOOSE COLOR</div>
       <div id="themeOptions"></div>
-      <div class="build-version">Build v5</div>
-    </div>
+    </section>
   </main>
 
   <section class="preset-editor" id="editorSheet" hidden aria-modal="true" role="dialog" aria-labelledby="editorTitle">
-    <img class="editor-ambient" src="./assets/preset-editor/ambient.svg" alt="">
     <header class="editor-header">
       <button class="editor-back" id="closeEditor" type="button" aria-label="Go back">‹</button>
       <h2 id="editorTitle">New preset</h2>

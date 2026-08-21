@@ -4,6 +4,7 @@ import {
   defaultPresets,
   formatTime,
   generatedName,
+  selectedIdAfterDeletion,
   THEMES,
   totalMinutes,
   validatePreset,
@@ -34,4 +35,10 @@ test('preset validation enforces integer and total limits', () => {
 test('generated names stay unique', () => {
   const presets = [{ id: '1', name: 'Meditation 10 min' }, { id: '2', name: 'Meditation 10 min (2)' }];
   assert.equal(generatedName(10, presets), 'Meditation 10 min (3)');
+});
+
+test('deleting the selected preset chooses the next item, then the previous item', () => {
+  assert.equal(selectedIdAfterDeletion([{ id: 'a' }, { id: 'c' }], 1), 'c');
+  assert.equal(selectedIdAfterDeletion([{ id: 'a' }, { id: 'b' }], 2), 'b');
+  assert.equal(selectedIdAfterDeletion([], 0), null);
 });

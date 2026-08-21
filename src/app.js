@@ -4,13 +4,14 @@ import {
   generatedName,
   GONGS,
   presetMetadata,
+  selectedIdAfterDeletion,
   THEMES,
   totalMinutes,
   validatePreset,
-} from './domain.js?v=5';
-import { loadState, saveState } from './storage.js?v=5';
-import { TimerEngine } from './timer-engine.js?v=5';
-import { installStandaloneViewportCompensation } from './viewport.js?v=5';
+} from './domain.js?v=6';
+import { loadState, saveState } from './storage.js?v=6';
+import { TimerEngine } from './timer-engine.js?v=6';
+import { installStandaloneViewportCompensation } from './viewport.js?v=6';
 
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
@@ -24,6 +25,8 @@ let pendingConfirmation = null;
 let toastTimeout = null;
 let activeGongKind = null;
 let intervalDrag = null;
+let presetDrag = null;
+let historyOverlay = null;
 
 const elements = {
   app: $('#app'),
@@ -89,6 +92,8 @@ function applyTheme(theme) {
 }
 
 function render() {
+  elements.app.scrollTop = 0;
+  elements.app.scrollLeft = 0;
   const preset = timer.preset ?? selectedPreset();
   const active = ['running', 'paused', 'completed'].includes(timer.state);
   elements.app.classList.toggle('active', active);
@@ -114,6 +119,8 @@ function render() {
 }
 
 function renderPresets() {
+  elements.app.scrollTop = 0;
+  elements.app.scrollLeft = 0;
   elements.managePresets.textContent = managing ? 'DONE' : 'EDIT';
   elements.managePresets.disabled = !state.presets.length || timer.state !== 'idle';
   elements.addPreset.disabled = timer.state !== 'idle';
@@ -121,7 +128,8 @@ function renderPresets() {
 
   for (const [index, preset] of state.presets.entries()) {
     const row = document.createElement(managing ? 'div' : 'button');
-    row.className = `preset-row${preset.id === state.selectedId ? ' active' : ''}`;
+    row.className = `preset-row${managing ? ' edit-mode' : ''}${preset.id === state.selectedId ? ' active' : ''}`;
+    row.dataset.presetIndex = String(index);
     if (!managing) {
       row.type = 'button';
       row.addEventListener('click', () => {
@@ -131,54 +139,84 @@ function renderPresets() {
         render();
       });
     }
-    row.innerHTML = `
-      <span class="preset-dot" aria-hidden="true"></span>
-      <span class="preset-copy"><strong>${escapeHtml(preset.name)}</strong><small>${escapeHtml(presetMetadata(preset))}</small></span>
-      ${managing ? '<span class="manage-row"></span>' : `<span class="preset-time">${formatTime(totalMinutes(preset) * 60)}</span>`}
-    `;
     if (managing) {
-      const actions = row.querySelector('.manage-row');
-      actions.append(
-        actionButton('↑', 'Move preset up', () => movePreset(index, -1), index === 0),
-        actionButton('↓', 'Move preset down', () => movePreset(index, 1), index === state.presets.length - 1),
-        actionButton('✎', 'Edit preset', () => openEditor(preset)),
-        actionButton('×', 'Delete preset', () => deletePreset(preset)),
-      );
+      row.innerHTML = `
+        <button class="reorder-preset" type="button" aria-label="Reorder ${escapeHtml(preset.name)}. Move up with Arrow Up; move down with Arrow Down." aria-keyshortcuts="ArrowUp ArrowDown">
+          <span class="management-icon drag-icon" aria-hidden="true"></span>
+        </button>
+        <span class="preset-copy"><strong>${escapeHtml(preset.name)}</strong><small>${escapeHtml(presetMetadata(preset))}</small></span>
+        <button class="edit-preset" type="button" aria-label="Edit preset"><span class="management-icon edit-icon" aria-hidden="true"></span></button>
+        <button class="delete-preset" type="button" aria-label="Delete preset"><span class="management-icon trash-icon" aria-hidden="true"></span></button>
+      `;
+      const handle = row.querySelector('.reorder-preset');
+      handle.addEventListener('pointerdown', (event) => beginPresetDrag(event, index));
+      handle.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowUp') { event.preventDefault(); movePreset(index, -1, true); }
+        if (event.key === 'ArrowDown') { event.preventDefault(); movePreset(index, 1, true); }
+      });
+      row.querySelector('.edit-preset').addEventListener('click', () => openEditor(preset));
+      row.querySelector('.delete-preset').addEventListener('click', () => deletePreset(preset));
+    } else {
+      row.innerHTML = `
+        <span class="preset-dot" aria-hidden="true"></span>
+        <span class="preset-copy"><strong>${escapeHtml(preset.name)}</strong><small>${escapeHtml(presetMetadata(preset))}</small></span>
+        <span class="preset-time">${formatTime(totalMinutes(preset) * 60)}</span>
+      `;
     }
     elements.presetList.append(row);
   }
 }
 
-function actionButton(text, label, action, disabled = false) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = text;
-  button.ariaLabel = label;
-  button.disabled = disabled;
-  button.addEventListener('click', action);
-  return button;
-}
-
-function movePreset(index, direction) {
+function movePreset(index, direction, restoreFocus = false) {
   const target = index + direction;
   if (target < 0 || target >= state.presets.length) return;
   const [preset] = state.presets.splice(index, 1);
   state.presets.splice(target, 0, preset);
   saveState(state);
   renderPresets();
+  if (restoreFocus) {
+    requestAnimationFrame(() => elements.presetList.querySelector(`[data-preset-index="${target}"] .reorder-preset`)?.focus());
+  }
+}
+
+function beginPresetDrag(event, index) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  event.preventDefault();
+  presetDrag = { pointerId: event.pointerId, index };
+  event.currentTarget.closest('.preset-row')?.classList.add('dragging');
+}
+
+function continuePresetDrag(event) {
+  if (!presetDrag || event.pointerId !== presetDrag.pointerId) return;
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.preset-row');
+  if (!target || !elements.presetList.contains(target)) return;
+  const targetIndex = Number(target.dataset.presetIndex);
+  if (targetIndex === presetDrag.index) return;
+  const [preset] = state.presets.splice(presetDrag.index, 1);
+  state.presets.splice(targetIndex, 0, preset);
+  presetDrag.index = targetIndex;
+  saveState(state);
+  renderPresets();
+  elements.presetList.querySelector(`[data-preset-index="${targetIndex}"]`)?.classList.add('dragging');
+}
+
+function endPresetDrag(event) {
+  if (!presetDrag || event.pointerId !== presetDrag.pointerId) return;
+  presetDrag = null;
+  elements.presetList.querySelector('.dragging')?.classList.remove('dragging');
 }
 
 function deletePreset(preset) {
-  askConfirmation('Delete preset?', `${preset.name} will be removed from this device.`, 'Delete', () => {
+  askConfirmation('Delete preset?', `“${preset.name}” will be removed from this device.`, 'DELETE', () => {
     const index = state.presets.findIndex((item) => item.id === preset.id);
     state.presets.splice(index, 1);
     if (state.selectedId === preset.id) {
-      state.selectedId = state.presets[Math.min(index, state.presets.length - 1)]?.id ?? null;
+      state.selectedId = selectedIdAfterDeletion(state.presets, index);
     }
     saveState(state);
     render();
     showToast('Preset deleted.');
-  });
+  }, 'delete');
 }
 
 function renderThemes() {
@@ -189,7 +227,8 @@ function renderThemes() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `theme-option${theme === state.theme ? ' active' : ''}`;
-    button.innerHTML = `<span class="theme-swatch" style="background:${colors[theme]}"></span><strong>${labels[theme]}</strong><span class="selected-mark">${theme === state.theme ? '✓' : ''}</span>`;
+    button.ariaPressed = String(theme === state.theme);
+    button.innerHTML = `<span class="theme-swatch" style="background:${colors[theme]}"></span><strong>${labels[theme]}</strong>`;
     button.addEventListener('click', () => {
       applyTheme(theme);
       closeThemePopover();
@@ -198,9 +237,19 @@ function renderThemes() {
   }
 }
 
-function closeThemePopover() {
+function openThemePopover() {
+  elements.themePopover.hidden = false;
+  elements.themeButton.ariaExpanded = 'true';
+  elements.app.classList.add('settings-open');
+  pushOverlayHistory('settings');
+}
+
+function closeThemePopover(fromHistory = false) {
+  if (elements.themePopover.hidden) return;
   elements.themePopover.hidden = true;
   elements.themeButton.ariaExpanded = 'false';
+  elements.app.classList.remove('settings-open');
+  if (!fromHistory) releaseOverlayHistory('settings');
 }
 
 async function primaryAction() {
@@ -292,7 +341,7 @@ function renderEditor() {
         </button>
       </div>
       <button class="remove-interval" type="button" aria-label="Remove interval ${index + 1}" ${draft.intervals.length === 1 ? 'disabled' : ''}>
-        <img src="./assets/preset-editor/remove.svg" alt="">
+        <img src="./assets/icons/trash.svg" alt="">
       </button>
     `;
     row.querySelector('.minute-minus').addEventListener('click', () => {
@@ -444,18 +493,35 @@ function saveDraft(event) {
   requestAnimationFrame(() => elements.presetList.querySelector('.active')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
 }
 
-function askConfirmation(title, message, acceptLabel, action) {
+function askConfirmation(title, message, acceptLabel, action, kind = 'default') {
   pendingConfirmation = action;
   elements.confirmTitle.textContent = title;
   elements.confirmMessage.textContent = message;
   elements.confirmAccept.textContent = acceptLabel;
+  elements.confirm.classList.toggle('delete-confirmation', kind === 'delete');
   elements.confirm.hidden = false;
-  elements.confirmAccept.focus();
+  pushOverlayHistory('confirmation');
+  elements.confirmCancel.focus();
 }
 
-function closeConfirmation() {
+function closeConfirmation(fromHistory = false) {
+  if (elements.confirm.hidden) return;
   pendingConfirmation = null;
   elements.confirm.hidden = true;
+  elements.confirm.classList.remove('delete-confirmation');
+  if (!fromHistory) releaseOverlayHistory('confirmation');
+}
+
+function pushOverlayHistory(name) {
+  if (historyOverlay) return;
+  historyOverlay = name;
+  history.pushState({ meditationTimerOverlay: name }, '');
+}
+
+function releaseOverlayHistory(name) {
+  if (historyOverlay !== name) return;
+  historyOverlay = null;
+  history.back();
 }
 
 function showToast(message) {
@@ -472,8 +538,8 @@ function escapeHtml(value) {
 }
 
 elements.themeButton.addEventListener('click', () => {
-  elements.themePopover.hidden = !elements.themePopover.hidden;
-  elements.themeButton.ariaExpanded = String(!elements.themePopover.hidden);
+  if (elements.themePopover.hidden) openThemePopover();
+  else closeThemePopover();
 });
 document.addEventListener('pointerdown', (event) => {
   if (!elements.themePopover.hidden && !elements.themePopover.contains(event.target) && !elements.themeButton.contains(event.target)) closeThemePopover();
@@ -497,13 +563,27 @@ elements.gongDone.addEventListener('click', closeGongPicker);
 elements.gongScrim.addEventListener('click', closeGongPicker);
 elements.editor.querySelectorAll('[name="mode"]').forEach((radio) => radio.addEventListener('change', (event) => { draft.mode = event.target.value; }));
 document.addEventListener('pointermove', continueIntervalDrag);
+document.addEventListener('pointermove', continuePresetDrag);
 document.addEventListener('pointerup', endIntervalDrag);
+document.addEventListener('pointerup', endPresetDrag);
 document.addEventListener('pointercancel', endIntervalDrag);
-elements.confirmCancel.addEventListener('click', closeConfirmation);
+document.addEventListener('pointercancel', endPresetDrag);
+elements.confirmCancel.addEventListener('click', () => closeConfirmation());
 elements.confirmAccept.addEventListener('click', () => {
   const action = pendingConfirmation;
   closeConfirmation();
   action?.();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (!elements.confirm.hidden) closeConfirmation();
+  else if (!elements.themePopover.hidden) closeThemePopover();
+});
+window.addEventListener('popstate', () => {
+  const overlay = historyOverlay;
+  historyOverlay = null;
+  if (overlay === 'confirmation') closeConfirmation(true);
+  if (overlay === 'settings') closeThemePopover(true);
 });
 timer.addEventListener('change', render);
 timer.addEventListener('interval', () => playGong(timer.preset.intervalGong));

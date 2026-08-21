@@ -1,16 +1,19 @@
-const CACHE_NAME = 'meditation-timer-pwa-v5';
+const CACHE_NAME = 'meditation-timer-pwa-v6';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=5',
-  './app.js?v=5',
-  './domain.js?v=5',
-  './storage.js?v=5',
-  './timer-engine.js?v=5',
-  './viewport.js?v=5',
+  './styles.css?v=6',
+  './app.js?v=6',
+  './domain.js?v=6',
+  './storage.js?v=6',
+  './timer-engine.js?v=6',
+  './viewport.js?v=6',
   './manifest.webmanifest',
   './assets/Nunito-VariableFont_wght.ttf',
-  './assets/brush_icon.png',
+  './assets/icons/drag_handle.svg',
+  './assets/icons/edit.svg',
+  './assets/icons/menu.svg',
+  './assets/icons/trash.svg',
   './assets/timer_start_icon.svg',
   './assets/timer_pause_icon.svg',
   './assets/icon-192.png',
@@ -19,13 +22,11 @@ const APP_SHELL = [
   './assets/gong2.wav',
   './assets/gong3.wav',
   './assets/gong4.wav',
-  './assets/preset-editor/ambient.svg',
   './assets/preset-editor/chevron_right.svg',
   './assets/preset-editor/drag_handle.svg',
   './assets/preset-editor/minus.svg',
   './assets/preset-editor/play.svg',
   './assets/preset-editor/plus.svg',
-  './assets/preset-editor/remove.svg',
   './assets/preset-editor/selected.svg'
 ];
 
