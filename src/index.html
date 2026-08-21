@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#59E5B5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Meditation">
+  <meta name="format-detection" content="telephone=no">
+  <title>Meditation Timer</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body data-theme="green">
+  <main class="app" id="app">
+    <div class="ambient ambient-corner" aria-hidden="true"></div>
+    <div class="ambient ambient-lower" aria-hidden="true"></div>
+    <div class="ambient-line" aria-hidden="true"></div>
+
+    <header class="app-header">
+      <strong>meditation timer</strong>
+      <button class="icon-button theme-button" id="themeButton" type="button" aria-label="Change appearance" aria-expanded="false">
+        <img src="./assets/brush_icon.png" alt="">
+      </button>
+    </header>
+
+    <section class="session-block" id="sessionBlock" aria-live="polite">
+      <div class="session-label">CURRENT PRESET</div>
+      <h1 id="sessionTitle">Meditation 30 min</h1>
+      <div class="timer-dial" id="timerDial">
+        <div class="timer-halo"></div>
+        <div class="timer-outer"></div>
+        <svg class="timer-progress" viewBox="0 0 270 270" aria-hidden="true">
+          <circle id="progressCircle" cx="135" cy="135" r="132"></circle>
+        </svg>
+        <div class="timer-face"></div>
+        <div class="timer-mode" id="timerMode">COUNTDOWN</div>
+        <div class="timer-value" id="timerValue">30:00</div>
+        <div class="timer-interval" id="timerInterval">1 interval</div>
+        <button class="primary-action" id="primaryAction" type="button" aria-label="Start session">
+          <img id="primaryIcon" src="./assets/timer_start_icon.svg" alt="">
+        </button>
+      </div>
+    </section>
+
+    <button class="end-session" id="endSession" type="button">End session</button>
+
+    <section class="presets-section" id="presetsSection">
+      <div class="presets-header">
+        <span>YOUR PRESETS</span>
+        <div class="preset-actions">
+          <button class="pill-button" id="managePresets" type="button">EDIT</button>
+          <button class="icon-button add-button" id="addPreset" type="button" aria-label="Add preset">+</button>
+        </div>
+      </div>
+      <div class="preset-list" id="presetList"></div>
+    </section>
+
+    <div class="popover" id="themePopover" hidden>
+      <div class="eyebrow">APPEARANCE</div>
+      <p>Choose a visual profile</p>
+      <div id="themeOptions"></div>
+    </div>
+  </main>
+
+  <section class="sheet" id="editorSheet" hidden aria-modal="true" role="dialog" aria-labelledby="editorTitle">
+    <header class="sheet-header">
+      <button class="sheet-close" id="closeEditor" type="button" aria-label="Close">×</button>
+      <div>
+        <div class="eyebrow" id="editorEyebrow">PRESET</div>
+        <h2 id="editorTitle">New preset</h2>
+      </div>
+    </header>
+    <form class="editor-form" id="editorForm">
+      <label class="field-label" for="presetName">Preset name <span>(optional)</span></label>
+      <input id="presetName" maxlength="60" autocomplete="off">
+
+      <fieldset class="segmented">
+        <legend>Counting direction</legend>
+        <label><input type="radio" name="mode" value="countdown"><span>Countdown</span></label>
+        <label><input type="radio" name="mode" value="countUp"><span>Count up</span></label>
+      </fieldset>
+
+      <div class="sound-grid">
+        <label>Start &amp; end gong<select id="startEndGong"></select></label>
+        <button class="preview-sound" data-preview="start" type="button">Preview</button>
+        <label>Interval gong<select id="intervalGong"></select></label>
+        <button class="preview-sound" data-preview="interval" type="button">Preview</button>
+      </div>
+
+      <div class="total-row">
+        <span>TOTAL</span><strong id="editorTotal">10 min</strong>
+      </div>
+      <div id="editorError" class="form-error" hidden></div>
+      <div class="interval-list" id="intervalList"></div>
+      <button class="add-interval" id="addInterval" type="button">+ Add interval</button>
+    </form>
+    <footer class="sheet-footer">
+      <button class="save-button" id="savePreset" type="submit" form="editorForm">Save</button>
+    </footer>
+  </section>
+
+  <div class="dialog-backdrop" id="confirmDialog" hidden>
+    <section class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <h2 id="confirmTitle">End meditation?</h2>
+      <p id="confirmMessage"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" type="button">Cancel</button>
+        <button id="confirmAccept" type="button">End session</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" hidden role="status"></div>
+  <noscript>This timer requires JavaScript.</noscript>
+</body>
+</html>
