@@ -1,12 +1,13 @@
-const CACHE_NAME = 'meditation-timer-pwa-v4';
+const CACHE_NAME = 'meditation-timer-pwa-v5';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
-  './domain.js',
-  './storage.js',
-  './timer-engine.js',
+  './styles.css?v=5',
+  './app.js?v=5',
+  './domain.js?v=5',
+  './storage.js?v=5',
+  './timer-engine.js?v=5',
+  './viewport.js?v=5',
   './manifest.webmanifest',
   './assets/Nunito-VariableFont_wght.ttf',
   './assets/brush_icon.png',
@@ -44,11 +45,28 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', copy));
+        return response;
+      }).catch(() => caches.match('./index.html')),
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((cached) => cached ?? fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-      return response;
-    }).catch(() => caches.match('./index.html'))),
+    caches.match(event.request).then((cached) => {
+      const refreshed = fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      }).catch(() => cached);
+      return cached ?? refreshed;
+    }),
   );
 });

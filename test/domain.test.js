@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultPresets, formatTime, generatedName, totalMinutes, validatePreset } from '../src/domain.js';
+import {
+  defaultPresets,
+  formatTime,
+  generatedName,
+  THEMES,
+  totalMinutes,
+  validatePreset,
+} from '../src/domain.js';
+
+test('the theme list contains the four supported visual profiles', () => {
+  assert.deepEqual(THEMES, ['green', 'light', 'dark', 'modern']);
+});
 
 test('starter presets match the MVP', () => {
   const presets = defaultPresets();

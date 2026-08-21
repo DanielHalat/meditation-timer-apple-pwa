@@ -1,4 +1,4 @@
-import { defaultPresets, THEMES } from './domain.js';
+import { defaultPresets, THEMES } from './domain.js?v=5';
 
 const STORAGE_KEY = 'meditation-timer.apple-pwa.v1';
 

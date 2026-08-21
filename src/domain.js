@@ -1,4 +1,4 @@
-export const THEMES = ['green', 'dark', 'light'];
+export const THEMES = ['green', 'light', 'dark', 'modern'];
 export const GONGS = [
   { id: 'gong1', label: 'Deep gong', description: 'Full, grounding tone', file: './assets/gong1.wav' },
   { id: 'gong2', label: 'Gentle bowl', description: 'Soft and unobtrusive', file: './assets/gong2.wav' },

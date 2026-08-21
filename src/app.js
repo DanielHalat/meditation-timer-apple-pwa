@@ -7,9 +7,10 @@ import {
   THEMES,
   totalMinutes,
   validatePreset,
-} from './domain.js';
-import { loadState, saveState } from './storage.js';
-import { TimerEngine } from './timer-engine.js';
+} from './domain.js?v=5';
+import { loadState, saveState } from './storage.js?v=5';
+import { TimerEngine } from './timer-engine.js?v=5';
+import { installStandaloneViewportCompensation } from './viewport.js?v=5';
 
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
@@ -76,7 +77,12 @@ function selectedPreset() {
 function applyTheme(theme) {
   state.theme = theme;
   document.body.dataset.theme = theme;
-  const colors = { green: '#59E5B5', light: '#F5F5F2', dark: '#121212' };
+  const colors = {
+    green: '#59E5B5',
+    light: '#F5F5F2',
+    dark: '#121212',
+    modern: '#FAFAF8',
+  };
   $('meta[name="theme-color"]').content = colors[theme];
   saveState(state);
   renderThemes();
@@ -177,8 +183,8 @@ function deletePreset(preset) {
 
 function renderThemes() {
   elements.themeOptions.replaceChildren();
-  const labels = { green: 'Green', dark: 'Dark', light: 'Light' };
-  const colors = { green: '#59E5B5', dark: '#121212', light: '#F5F5F2' };
+  const labels = { green: 'Green', light: 'Light', dark: 'Dark', modern: 'Modern' };
+  const colors = { green: '#59E5B5', light: '#F5F5F2', dark: '#121212', modern: '#22E243' };
   for (const theme of THEMES) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -519,8 +525,16 @@ window.addEventListener('beforeunload', (event) => {
   }
 });
 
+installStandaloneViewportCompensation();
 applyTheme(state.theme);
 render();
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      await registration.update();
+    } catch {
+      // The timer remains usable online when service worker registration is unavailable.
+    }
+  });
 }
