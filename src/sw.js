@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meditation-timer-pwa-v3';
+const CACHE_NAME = 'meditation-timer-pwa-v4';
 const APP_SHELL = [
   './',
   './index.html',

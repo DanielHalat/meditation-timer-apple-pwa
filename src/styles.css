@@ -101,7 +101,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   inset: 0 auto 0 50%;
   transform: translateX(-50%);
   width: min(100vw, 540px);
-  height: 100svh;
+  height: 100vh;
+  height: 100lvh;
   min-height: 640px;
   margin: 0;
   overflow: hidden;
