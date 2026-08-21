@@ -66,42 +66,73 @@
     </div>
   </main>
 
-  <section class="sheet" id="editorSheet" hidden aria-modal="true" role="dialog" aria-labelledby="editorTitle">
-    <header class="sheet-header">
-      <button class="sheet-close" id="closeEditor" type="button" aria-label="Close">×</button>
-      <div>
-        <div class="eyebrow" id="editorEyebrow">PRESET</div>
-        <h2 id="editorTitle">New preset</h2>
-      </div>
+  <section class="preset-editor" id="editorSheet" hidden aria-modal="true" role="dialog" aria-labelledby="editorTitle">
+    <img class="editor-ambient" src="./assets/preset-editor/ambient.svg" alt="">
+    <header class="editor-header">
+      <button class="editor-back" id="closeEditor" type="button" aria-label="Go back">‹</button>
+      <h2 id="editorTitle">New preset</h2>
+      <button class="editor-cancel" id="cancelEditor" type="button">Cancel</button>
     </header>
-    <form class="editor-form" id="editorForm">
-      <label class="field-label" for="presetName">Preset name <span>(optional)</span></label>
-      <input id="presetName" maxlength="60" autocomplete="off">
 
-      <fieldset class="segmented">
-        <legend>Counting direction</legend>
-        <label><input type="radio" name="mode" value="countdown"><span>Countdown</span></label>
-        <label><input type="radio" name="mode" value="countUp"><span>Count up</span></label>
+    <form class="editor-form" id="editorForm">
+      <section class="editor-section name-section">
+        <label class="editor-label" for="presetName">NAME · OPTIONAL</label>
+        <input class="name-input" id="presetName" maxlength="60" autocomplete="off">
+      </section>
+
+      <fieldset class="direction-section">
+        <legend class="editor-label">TIMER DIRECTION</legend>
+        <div class="direction-control">
+          <label><input type="radio" name="mode" value="countdown"><span>Countdown</span></label>
+          <label><input type="radio" name="mode" value="countUp"><span>Count up</span></label>
+        </div>
       </fieldset>
 
-      <div class="sound-grid">
-        <label>Start &amp; end gong<select id="startEndGong"></select></label>
-        <button class="preview-sound" data-preview="start" type="button">Preview</button>
-        <label>Interval gong<select id="intervalGong"></select></label>
-        <button class="preview-sound" data-preview="interval" type="button">Preview</button>
-      </div>
+      <section class="editor-section sounds-section">
+        <h3 class="editor-label">SESSION SOUNDS</h3>
+        <div class="sound-fields">
+          <button class="sound-field" id="startEndSoundField" type="button" data-gong-kind="startEndGong">
+            <span><small>START &amp; END</small><strong id="startEndGongLabel">Deep gong</strong></span>
+            <img src="./assets/preset-editor/chevron_right.svg" alt="">
+          </button>
+          <button class="sound-field" id="intervalSoundField" type="button" data-gong-kind="intervalGong">
+            <span><small>INTERVAL GONG</small><strong id="intervalGongLabel">Gentle bowl</strong></span>
+            <img src="./assets/preset-editor/chevron_right.svg" alt="">
+          </button>
+        </div>
+      </section>
 
-      <div class="total-row">
-        <span>TOTAL</span><strong id="editorTotal">10 min</strong>
-      </div>
-      <div id="editorError" class="form-error" hidden></div>
-      <div class="interval-list" id="intervalList"></div>
-      <button class="add-interval" id="addInterval" type="button">+ Add interval</button>
+      <section class="editor-section sequence-section">
+        <h3 class="editor-label" id="sequenceLabel">SESSION SEQUENCE · 10 MIN</h3>
+        <div id="editorError" class="form-error" hidden></div>
+        <div class="interval-list" id="intervalList"></div>
+        <button class="add-interval" id="addInterval" type="button">
+          <img src="./assets/preset-editor/plus.svg" alt="">
+          <span>Add interval</span>
+        </button>
+        <p class="editor-total" id="editorTotal">1 interval&nbsp; · &nbsp;10 min</p>
+      </section>
     </form>
-    <footer class="sheet-footer">
+
+    <footer class="editor-footer">
       <button class="save-button" id="savePreset" type="submit" form="editorForm">Save</button>
     </footer>
   </section>
+
+  <div class="gong-picker" id="gongPicker" hidden role="dialog" aria-modal="true" aria-labelledby="gongPickerTitle">
+    <button class="gong-scrim" id="gongScrim" type="button" aria-label="Close sound picker"></button>
+    <section class="gong-sheet">
+      <div class="gong-handle" aria-hidden="true"></div>
+      <header class="gong-header">
+        <h2 id="gongPickerTitle">Choose sound</h2>
+        <button id="gongDone" type="button">Done</button>
+      </header>
+      <div class="editor-label" id="gongContext">START &amp; END GONG</div>
+      <p class="gong-help">Preview a sound, then select it for this preset.</p>
+      <div class="gong-options" id="gongOptions"></div>
+      <div class="gong-note" id="gongNote">Used at the start and end of the session. Interval gong is set separately.</div>
+    </section>
+  </div>
 
   <div class="dialog-backdrop" id="confirmDialog" hidden>
     <section class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">

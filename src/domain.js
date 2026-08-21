@@ -1,10 +1,10 @@
 export const THEMES = ['green', 'dark', 'light'];
 export const GONGS = [
-  { id: 'none', label: 'None', description: 'No sound', file: '' },
-  { id: 'gong1', label: 'Gong 1', description: 'Default start & end gong', file: './assets/gong1.wav' },
-  { id: 'gong2', label: 'Gong 2', description: 'Default interval gong', file: './assets/gong2.wav' },
-  { id: 'gong3', label: 'Gong 3', description: 'Alternative gong', file: './assets/gong3.wav' },
+  { id: 'gong1', label: 'Deep gong', description: 'Full, grounding tone', file: './assets/gong1.wav' },
+  { id: 'gong2', label: 'Gentle bowl', description: 'Soft and unobtrusive', file: './assets/gong2.wav' },
+  { id: 'gong3', label: 'Clear bell', description: 'Bright, focused tone', file: './assets/gong3.wav' },
   { id: 'gong4', label: 'Gong 4', description: 'Alternative gong', file: './assets/gong4.wav' },
+  { id: 'none', label: 'None', description: 'No sound at this point', file: '' },
 ];
 
 export function defaultPresets() {

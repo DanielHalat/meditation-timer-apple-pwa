@@ -21,6 +21,8 @@ let editingId = null;
 let wakeLock = null;
 let pendingConfirmation = null;
 let toastTimeout = null;
+let activeGongKind = null;
+let intervalDrag = null;
 
 const elements = {
   app: $('#app'),
@@ -41,15 +43,24 @@ const elements = {
   editor: $('#editorSheet'),
   editorForm: $('#editorForm'),
   editorTitle: $('#editorTitle'),
-  editorEyebrow: $('#editorEyebrow'),
   closeEditor: $('#closeEditor'),
+  cancelEditor: $('#cancelEditor'),
   presetName: $('#presetName'),
-  startEndGong: $('#startEndGong'),
-  intervalGong: $('#intervalGong'),
+  startEndGongLabel: $('#startEndGongLabel'),
+  intervalGongLabel: $('#intervalGongLabel'),
+  startEndSoundField: $('#startEndSoundField'),
+  intervalSoundField: $('#intervalSoundField'),
+  sequenceLabel: $('#sequenceLabel'),
   editorTotal: $('#editorTotal'),
   editorError: $('#editorError'),
   intervalList: $('#intervalList'),
   addInterval: $('#addInterval'),
+  gongPicker: $('#gongPicker'),
+  gongScrim: $('#gongScrim'),
+  gongDone: $('#gongDone'),
+  gongContext: $('#gongContext'),
+  gongNote: $('#gongNote'),
+  gongOptions: $('#gongOptions'),
   confirm: $('#confirmDialog'),
   confirmTitle: $('#confirmTitle'),
   confirmMessage: $('#confirmMessage'),
@@ -233,47 +244,157 @@ function openEditor(preset = null) {
   draft = createDraft(preset);
   draftOriginal = JSON.stringify(draft);
   elements.editorTitle.textContent = preset ? 'Edit preset' : 'New preset';
-  elements.editorEyebrow.textContent = preset ? 'PRESET SETTINGS' : 'NEW PRESET';
   elements.presetName.value = draft.name;
   elements.editor.querySelector(`[name="mode"][value="${draft.mode}"]`).checked = true;
-  populateGongSelect(elements.startEndGong, draft.startEndGong);
-  populateGongSelect(elements.intervalGong, draft.intervalGong);
   renderEditor();
   elements.editor.hidden = false;
-  elements.presetName.focus();
 }
 
-function populateGongSelect(select, selected) {
-  select.replaceChildren(...GONGS.map((gong) => {
-    const option = document.createElement('option');
-    option.value = gong.id;
-    option.textContent = `${gong.label} — ${gong.description}`;
-    option.selected = gong.id === selected;
-    return option;
-  }));
+function gongLabel(id) {
+  return GONGS.find((gong) => gong.id === id)?.label ?? 'None';
+}
+
+function renderEditorSummary() {
+  const minutes = totalMinutes(draft);
+  const count = draft.intervals.length;
+  elements.presetName.placeholder = `Meditation ${minutes} min`;
+  elements.sequenceLabel.textContent = `SESSION SEQUENCE · ${minutes} MIN`;
+  elements.editorTotal.textContent = `${count} ${count === 1 ? 'interval' : 'intervals'}  ·  ${minutes} min`;
+  elements.startEndGongLabel.textContent = gongLabel(draft.startEndGong);
+  elements.intervalGongLabel.textContent = gongLabel(draft.intervalGong);
 }
 
 function renderEditor() {
-  elements.editorTotal.textContent = `${totalMinutes(draft)} min`;
+  renderEditorSummary();
   elements.intervalList.replaceChildren();
   draft.intervals.forEach((minutes, index) => {
     const row = document.createElement('div');
     row.className = 'interval-row';
+    row.dataset.intervalIndex = String(index);
     row.innerHTML = `
-      <label>Interval ${String(index + 1).padStart(2, '0')}<input type="number" min="1" max="1440" step="1" inputmode="numeric" value="${minutes}" aria-label="Interval ${index + 1} minutes"></label>
-      <button class="remove-interval" type="button" aria-label="Remove interval" ${draft.intervals.length === 1 ? 'disabled' : ''}>×</button>
+      <button class="interval-drag" type="button" aria-label="Reorder interval ${index + 1}" title="Drag to reorder; use arrow keys with a keyboard">
+        <img src="./assets/preset-editor/drag_handle.svg" alt="">
+      </button>
+      <span class="interval-number">${String(index + 1).padStart(2, '0')}</span>
+      <div class="minute-stepper">
+        <button class="minute-minus" type="button" aria-label="Decrease interval ${index + 1}">
+          <img src="./assets/preset-editor/minus.svg" alt="">
+        </button>
+        <strong>${minutes} min</strong>
+        <button class="minute-plus" type="button" aria-label="Increase interval ${index + 1}">
+          <img src="./assets/preset-editor/plus.svg" alt="">
+        </button>
+      </div>
+      <button class="remove-interval" type="button" aria-label="Remove interval ${index + 1}" ${draft.intervals.length === 1 ? 'disabled' : ''}>
+        <img src="./assets/preset-editor/remove.svg" alt="">
+      </button>
     `;
-    row.querySelector('input').addEventListener('input', (event) => {
-      draft.intervals[index] = Number(event.target.value);
-      elements.editorTotal.textContent = `${totalMinutes(draft)} min`;
-      elements.editorError.hidden = true;
-    });
-    row.querySelector('button').addEventListener('click', () => {
-      draft.intervals.splice(index, 1);
+    row.querySelector('.minute-minus').addEventListener('click', () => {
+      draft.intervals[index] = Math.max(1, Number(draft.intervals[index]) - 1);
       renderEditor();
+    });
+    row.querySelector('.minute-plus').addEventListener('click', () => {
+      draft.intervals[index] = Math.min(1440, Number(draft.intervals[index]) + 1);
+      renderEditor();
+    });
+    row.querySelector('.remove-interval').addEventListener('click', () => {
+      if (draft.intervals.length === 1) return;
+      draft.intervals.splice(index, 1);
+      elements.editorError.hidden = true;
+      renderEditor();
+    });
+    const dragHandle = row.querySelector('.interval-drag');
+    dragHandle.addEventListener('pointerdown', (event) => beginIntervalDrag(event, index));
+    dragHandle.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowUp') moveInterval(index, -1);
+      if (event.key === 'ArrowDown') moveInterval(index, 1);
     });
     elements.intervalList.append(row);
   });
+}
+
+function moveInterval(index, direction) {
+  const target = index + direction;
+  if (target < 0 || target >= draft.intervals.length) return;
+  const [minutes] = draft.intervals.splice(index, 1);
+  draft.intervals.splice(target, 0, minutes);
+  renderEditor();
+  elements.intervalList.querySelector(`[data-interval-index="${target}"] .interval-drag`)?.focus();
+}
+
+function beginIntervalDrag(event, index) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  event.preventDefault();
+  intervalDrag = { pointerId: event.pointerId, index };
+  event.currentTarget.closest('.interval-row')?.classList.add('dragging');
+}
+
+function continueIntervalDrag(event) {
+  if (!intervalDrag || event.pointerId !== intervalDrag.pointerId) return;
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.interval-row');
+  if (!target || !elements.intervalList.contains(target)) return;
+  const targetIndex = Number(target.dataset.intervalIndex);
+  if (targetIndex === intervalDrag.index) return;
+  const [minutes] = draft.intervals.splice(intervalDrag.index, 1);
+  draft.intervals.splice(targetIndex, 0, minutes);
+  intervalDrag.index = targetIndex;
+  renderEditor();
+  elements.intervalList.querySelector(`[data-interval-index="${targetIndex}"]`)?.classList.add('dragging');
+}
+
+function endIntervalDrag(event) {
+  if (!intervalDrag || event.pointerId !== intervalDrag.pointerId) return;
+  intervalDrag = null;
+  elements.intervalList.querySelector('.dragging')?.classList.remove('dragging');
+}
+
+function openGongPicker(kind) {
+  activeGongKind = kind;
+  const isStartEnd = kind === 'startEndGong';
+  elements.gongContext.textContent = isStartEnd ? 'START & END GONG' : 'INTERVAL GONG';
+  elements.gongNote.textContent = isStartEnd
+    ? 'Used at the start and end of the session. Interval gong is set separately.'
+    : 'Used between consecutive intervals. Start and end gong is set separately.';
+  renderGongOptions();
+  elements.gongPicker.hidden = false;
+}
+
+function renderGongOptions() {
+  const visibleIds = ['gong1', 'gong2', 'gong3', 'none'];
+  elements.gongOptions.replaceChildren();
+  for (const gong of visibleIds.map((id) => GONGS.find((item) => item.id === id))) {
+    const row = document.createElement('div');
+    const selected = draft[activeGongKind] === gong.id;
+    row.className = `gong-option${selected ? ' selected' : ''}`;
+
+    const preview = document.createElement('button');
+    preview.type = 'button';
+    preview.className = 'gong-preview';
+    preview.disabled = !gong.file;
+    preview.ariaLabel = gong.file ? `Preview ${gong.label}` : 'No preview available';
+    preview.innerHTML = '<img src="./assets/preset-editor/play.svg" alt="">';
+    preview.addEventListener('click', () => playGong(gong.id));
+
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'gong-select';
+    select.innerHTML = `
+      <span><strong>${escapeHtml(gong.label)}</strong><small>${escapeHtml(gong.description)}</small></span>
+      ${selected ? '<img src="./assets/preset-editor/selected.svg" alt="Selected">' : ''}
+    `;
+    select.addEventListener('click', () => {
+      draft[activeGongKind] = gong.id;
+      renderEditorSummary();
+      renderGongOptions();
+    });
+    row.append(preview, select);
+    elements.gongOptions.append(row);
+  }
+}
+
+function closeGongPicker() {
+  elements.gongPicker.hidden = true;
+  activeGongKind = null;
 }
 
 function closeEditor(force = false) {
@@ -284,6 +405,7 @@ function closeEditor(force = false) {
     return;
   }
   document.activeElement?.blur();
+  closeGongPicker();
   elements.editor.hidden = true;
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   draft = null;
@@ -293,8 +415,6 @@ function closeEditor(force = false) {
 function syncDraftFields() {
   draft.name = elements.presetName.value.trim();
   draft.mode = elements.editor.querySelector('[name="mode"]:checked').value;
-  draft.startEndGong = elements.startEndGong.value;
-  draft.intervalGong = elements.intervalGong.value;
 }
 
 function saveDraft(event) {
@@ -362,14 +482,17 @@ elements.endSession.addEventListener('click', () => askConfirmation(
 elements.managePresets.addEventListener('click', () => { managing = !managing; renderPresets(); });
 elements.addPreset.addEventListener('click', () => openEditor());
 elements.closeEditor.addEventListener('click', () => closeEditor());
+elements.cancelEditor.addEventListener('click', () => closeEditor());
 elements.editorForm.addEventListener('submit', saveDraft);
 elements.addInterval.addEventListener('click', () => { draft.intervals.push(10); renderEditor(); });
-elements.startEndGong.addEventListener('change', (event) => { draft.startEndGong = event.target.value; });
-elements.intervalGong.addEventListener('change', (event) => { draft.intervalGong = event.target.value; });
+elements.startEndSoundField.addEventListener('click', () => openGongPicker('startEndGong'));
+elements.intervalSoundField.addEventListener('click', () => openGongPicker('intervalGong'));
+elements.gongDone.addEventListener('click', closeGongPicker);
+elements.gongScrim.addEventListener('click', closeGongPicker);
 elements.editor.querySelectorAll('[name="mode"]').forEach((radio) => radio.addEventListener('change', (event) => { draft.mode = event.target.value; }));
-elements.editor.querySelectorAll('.preview-sound').forEach((button) => button.addEventListener('click', () => playGong(
-  button.dataset.preview === 'start' ? elements.startEndGong.value : elements.intervalGong.value,
-)));
+document.addEventListener('pointermove', continueIntervalDrag);
+document.addEventListener('pointerup', endIntervalDrag);
+document.addEventListener('pointercancel', endIntervalDrag);
 elements.confirmCancel.addEventListener('click', closeConfirmation);
 elements.confirmAccept.addEventListener('click', () => {
   const action = pendingConfirmation;

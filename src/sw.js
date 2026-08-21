@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meditation-timer-pwa-v1';
+const CACHE_NAME = 'meditation-timer-pwa-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -17,7 +17,15 @@ const APP_SHELL = [
   './assets/gong1.wav',
   './assets/gong2.wav',
   './assets/gong3.wav',
-  './assets/gong4.wav'
+  './assets/gong4.wav',
+  './assets/preset-editor/ambient.svg',
+  './assets/preset-editor/chevron_right.svg',
+  './assets/preset-editor/drag_handle.svg',
+  './assets/preset-editor/minus.svg',
+  './assets/preset-editor/play.svg',
+  './assets/preset-editor/plus.svg',
+  './assets/preset-editor/remove.svg',
+  './assets/preset-editor/selected.svg'
 ];
 
 self.addEventListener('install', (event) => {
