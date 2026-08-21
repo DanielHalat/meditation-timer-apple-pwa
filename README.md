@@ -2,6 +2,8 @@
 
 Samodzielna, instalowalna wersja PWA przygotowana przede wszystkim do testów na iPhonie. Nie wymaga Xcode, Maca ani konta Apple Developer. Źródłem zachowania jest `Research/Meditation Timer - Ideas.md`, a źródłem układu mobilnego — aktualne ramki Green, Light, Dark i Active session w Figmie.
 
+**Wersja online:** https://danielhalat.github.io/meditation-timer-apple-pwa/
+
 ## Co zawiera
 
 - instalację na ekranie początkowym iPhone’a w trybie `standalone`;
