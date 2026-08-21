@@ -15,6 +15,10 @@ Samodzielna, instalowalna wersja PWA przygotowana przede wszystkim do testów na
 - lokalny zapis w przeglądarce, działanie offline po pierwszym poprawnym uruchomieniu i blokadę układu do pionowej kompozycji;
 - Screen Wake Lock, gdy przeglądarka i ustawienia telefonu na to pozwalają.
 
+## Lista presetów na ekranie głównym
+
+Na telefonie stały nagłówek `YOUR PRESETS / EDIT-DONE / +` wyznacza wyłącznie górną granicę przewijalnej listy. Viewport listy ma sięgać do fizycznej dolnej krawędzi ekranu aplikacji: presety znikają u góry pod nagłówkiem, a u dołu dopiero po przekroczeniu krawędzi ekranu. Nie wolno kończyć kontenera listy nad `safe-area-inset-bottom` ani dodawać stałej dolnej belki, maski lub stopki. Dolny safe area może występować tylko jako padding na końcu przewijanej zawartości, dzięki któremu ostatni wiersz można wysunąć ponad wskaźnik Home. W stanie początkowym na obsługiwanych wysokościach iPhone'a muszą być widoczne co najmniej cztery pełne presety.
+
 ## Budowanie i testy
 
 Projekt nie ma zewnętrznych zależności. Wymaga tylko Node.js.

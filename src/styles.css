@@ -169,7 +169,7 @@ body[data-theme='dark'] .primary-action img { filter: brightness(0); }
   top: calc(env(safe-area-inset-top, 0px) + 506px);
   left: 18px;
   right: 18px;
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: 0;
   overflow: hidden;
   border-top: 1px solid var(--preset-divider);
   transition: transform 480ms cubic-bezier(.22,.8,.2,1);
@@ -317,6 +317,13 @@ body[data-theme='dark'] .primary-action img { filter: brightness(0); }
   .app { min-height: 0; }
   .session-block { transform: scale(.9); transform-origin: top center; }
   .app.active .session-block { transform: translateY(52px) scale(.9); }
-  .presets-section { top: calc(env(safe-area-inset-top, 0px) + 470px); }
+  .presets-section { top: calc(env(safe-area-inset-top, 0px) + 438px); }
   .end-session { top: calc(env(safe-area-inset-top, 0px) + 585px); }
+}
+
+@media (max-height: 700px) {
+  .session-block { transform: scale(.74); transform-origin: top center; }
+  .app.active .session-block { transform: translateY(44px) scale(.74); }
+  .presets-section { top: calc(env(safe-area-inset-top, 0px) + 350px); }
+  .end-session { top: calc(env(safe-area-inset-top, 0px) + 508px); }
 }
