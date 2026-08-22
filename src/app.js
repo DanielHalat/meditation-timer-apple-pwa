@@ -8,10 +8,10 @@ import {
   THEMES,
   totalMinutes,
   validatePreset,
-} from './domain.js?v=6';
-import { loadState, saveState } from './storage.js?v=6';
-import { TimerEngine } from './timer-engine.js?v=6';
-import { installStandaloneViewportCompensation } from './viewport.js?v=6';
+} from './domain.js?v=8';
+import { loadState, saveState } from './storage.js?v=8';
+import { TimerEngine } from './timer-engine.js?v=8';
+import { installStandaloneViewportCompensation } from './viewport.js?v=8';
 
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
@@ -23,16 +23,23 @@ let editingId = null;
 let wakeLock = null;
 let pendingConfirmation = null;
 let toastTimeout = null;
+let editorFeedbackTimeout = null;
+let removedInterval = null;
+let intervalErrors = {};
+let savingDraft = false;
 let activeGongKind = null;
 let intervalDrag = null;
 let presetDrag = null;
-let historyOverlay = null;
+const historyOverlays = [];
+let suppressedPopstates = 0;
+const gongPlayers = new Map();
 
 const elements = {
   app: $('#app'),
   themeButton: $('#themeButton'),
   themePopover: $('#themePopover'),
   themeOptions: $('#themeOptions'),
+  sessionLabel: $('#sessionLabel'),
   title: $('#sessionTitle'),
   timerMode: $('#timerMode'),
   timerValue: $('#timerValue'),
@@ -47,7 +54,6 @@ const elements = {
   editor: $('#editorSheet'),
   editorForm: $('#editorForm'),
   editorTitle: $('#editorTitle'),
-  closeEditor: $('#closeEditor'),
   cancelEditor: $('#cancelEditor'),
   presetName: $('#presetName'),
   startEndGongLabel: $('#startEndGongLabel'),
@@ -57,8 +63,12 @@ const elements = {
   sequenceLabel: $('#sequenceLabel'),
   editorTotal: $('#editorTotal'),
   editorError: $('#editorError'),
+  editorFeedback: $('#editorFeedback'),
+  editorFeedbackMessage: $('#editorFeedbackMessage'),
+  editorFeedbackAction: $('#editorFeedbackAction'),
   intervalList: $('#intervalList'),
   addInterval: $('#addInterval'),
+  savePreset: $('#savePreset'),
   gongPicker: $('#gongPicker'),
   gongScrim: $('#gongScrim'),
   gongDone: $('#gongDone'),
@@ -96,16 +106,23 @@ function render() {
   elements.app.scrollLeft = 0;
   const preset = timer.preset ?? selectedPreset();
   const active = ['running', 'paused', 'completed'].includes(timer.state);
+  const empty = !preset;
   elements.app.classList.toggle('active', active);
+  elements.app.classList.toggle('empty', empty);
   elements.endSession.disabled = !active;
-  elements.title.textContent = preset?.name ?? 'Choose a preset';
-  elements.timerMode.textContent = timer.state === 'paused'
+  elements.sessionLabel.textContent = empty ? 'NO PRESETS YET' : 'CURRENT PRESET';
+  elements.title.textContent = preset?.name ?? 'Create your first preset';
+  elements.timerMode.textContent = empty
+    ? 'NO TIMER'
+    : timer.state === 'paused'
     ? 'PAUSED'
     : preset?.mode === 'countUp' ? 'COUNT UP' : timer.state === 'completed' ? 'COMPLETE' : 'COUNTDOWN';
   const idleSeconds = preset ? totalMinutes(preset) * 60 : 0;
-  elements.timerValue.textContent = formatTime(active ? timer.displayedSeconds : idleSeconds);
+  elements.timerValue.textContent = empty ? '--:--' : formatTime(active ? timer.displayedSeconds : idleSeconds);
   const count = preset?.intervals.length ?? 0;
-  elements.timerInterval.textContent = `${count} ${count === 1 ? 'interval' : 'intervals'}`;
+  elements.timerInterval.textContent = empty
+    ? 'Add a preset to begin'
+    : `${count} ${count === 1 ? 'interval' : 'intervals'}`;
 
   let visualProgress = preset?.mode === 'countUp' ? 0 : 1;
   if (active) visualProgress = preset.mode === 'countUp' ? timer.progress : 1 - timer.progress;
@@ -121,7 +138,9 @@ function render() {
 function renderPresets() {
   elements.app.scrollTop = 0;
   elements.app.scrollLeft = 0;
+  if (!state.presets.length) managing = false;
   elements.managePresets.textContent = managing ? 'DONE' : 'EDIT';
+  elements.managePresets.hidden = !state.presets.length;
   elements.managePresets.disabled = !state.presets.length || timer.state !== 'idle';
   elements.addPreset.disabled = timer.state !== 'idle';
   elements.presetList.replaceChildren();
@@ -132,19 +151,16 @@ function renderPresets() {
     row.dataset.presetIndex = String(index);
     if (!managing) {
       row.type = 'button';
-      row.addEventListener('click', () => {
-        if (timer.state !== 'idle') return;
-        state.selectedId = preset.id;
-        saveState(state);
-        render();
-      });
+      row.addEventListener('click', () => selectPreset(preset));
     }
     if (managing) {
       row.innerHTML = `
         <button class="reorder-preset" type="button" aria-label="Reorder ${escapeHtml(preset.name)}. Move up with Arrow Up; move down with Arrow Down." aria-keyshortcuts="ArrowUp ArrowDown">
           <span class="management-icon drag-icon" aria-hidden="true"></span>
         </button>
-        <span class="preset-copy"><strong>${escapeHtml(preset.name)}</strong><small>${escapeHtml(presetMetadata(preset))}</small></span>
+        <button class="select-preset" type="button" aria-label="Select ${escapeHtml(preset.name)}">
+          <span class="preset-copy"><strong>${escapeHtml(preset.name)}</strong><small>${escapeHtml(presetMetadata(preset))}</small></span>
+        </button>
         <button class="edit-preset" type="button" aria-label="Edit preset"><span class="management-icon edit-icon" aria-hidden="true"></span></button>
         <button class="delete-preset" type="button" aria-label="Delete preset"><span class="management-icon trash-icon" aria-hidden="true"></span></button>
       `;
@@ -154,6 +170,7 @@ function renderPresets() {
         if (event.key === 'ArrowUp') { event.preventDefault(); movePreset(index, -1, true); }
         if (event.key === 'ArrowDown') { event.preventDefault(); movePreset(index, 1, true); }
       });
+      row.querySelector('.select-preset').addEventListener('click', () => selectPreset(preset));
       row.querySelector('.edit-preset').addEventListener('click', () => openEditor(preset));
       row.querySelector('.delete-preset').addEventListener('click', () => deletePreset(preset));
     } else {
@@ -165,6 +182,13 @@ function renderPresets() {
     }
     elements.presetList.append(row);
   }
+}
+
+function selectPreset(preset) {
+  if (timer.state !== 'idle') return;
+  state.selectedId = preset.id;
+  saveState(state);
+  render();
 }
 
 function movePreset(index, direction, restoreFocus = false) {
@@ -273,8 +297,14 @@ async function playGong(id) {
   const gong = GONGS.find((item) => item.id === id);
   if (!gong?.file) return;
   try {
-    const audio = new Audio(gong.file);
-    audio.preload = 'auto';
+    let audio = gongPlayers.get(gong.id);
+    if (!audio) {
+      audio = new Audio(gong.file);
+      audio.preload = 'auto';
+      gongPlayers.set(gong.id, audio);
+    }
+    audio.pause();
+    audio.currentTime = 0;
     await audio.play();
   } catch {
     showToast('Sound is unavailable. Check silent mode and media volume.');
@@ -298,11 +328,17 @@ function openEditor(preset = null) {
   editingId = preset?.id ?? null;
   draft = createDraft(preset);
   draftOriginal = JSON.stringify(draft);
-  elements.editorTitle.textContent = preset ? 'Edit preset' : 'New preset';
+  intervalErrors = {};
+  removedInterval = null;
+  savingDraft = false;
+  clearEditorFeedback();
+  elements.editorError.hidden = true;
+  elements.editorTitle.textContent = preset ? 'Edit preset' : 'Create a preset';
   elements.presetName.value = draft.name;
   elements.editor.querySelector(`[name="mode"][value="${draft.mode}"]`).checked = true;
   renderEditor();
   elements.editor.hidden = false;
+  pushOverlayHistory('editor');
 }
 
 function gongLabel(id) {
@@ -323,49 +359,147 @@ function renderEditor() {
   renderEditorSummary();
   elements.intervalList.replaceChildren();
   draft.intervals.forEach((minutes, index) => {
+    const item = document.createElement('div');
+    const error = intervalErrors[index];
+    item.className = `interval-item${error ? ' has-error' : ''}`;
     const row = document.createElement('div');
-    row.className = 'interval-row';
+    row.className = `interval-row${error ? ' invalid' : ''}`;
     row.dataset.intervalIndex = String(index);
+    const hintId = `interval-${index}-hint`;
+    const errorId = `interval-${index}-error`;
     row.innerHTML = `
       <button class="interval-drag" type="button" aria-label="Reorder interval ${index + 1}" title="Drag to reorder; use arrow keys with a keyboard">
-        <img src="./assets/preset-editor/drag_handle.svg" alt="">
+        <span class="management-icon drag-icon" aria-hidden="true"></span>
       </button>
       <span class="interval-number">${String(index + 1).padStart(2, '0')}</span>
       <div class="minute-stepper">
         <button class="minute-minus" type="button" aria-label="Decrease interval ${index + 1}">
-          <img src="./assets/preset-editor/minus.svg" alt="">
+          <span class="editor-icon minus-icon" aria-hidden="true"></span>
         </button>
-        <strong>${minutes} min</strong>
+        <label class="minute-value">
+          <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${escapeHtml(minutes)}" aria-label="Interval ${index + 1} duration in minutes" aria-describedby="${error ? errorId : hintId}" aria-invalid="${Boolean(error)}">
+          <span>min</span>
+        </label>
         <button class="minute-plus" type="button" aria-label="Increase interval ${index + 1}">
-          <img src="./assets/preset-editor/plus.svg" alt="">
+          <span class="editor-icon plus-icon" aria-hidden="true"></span>
         </button>
       </div>
       <button class="remove-interval" type="button" aria-label="Remove interval ${index + 1}" ${draft.intervals.length === 1 ? 'disabled' : ''}>
-        <img src="./assets/icons/trash.svg" alt="">
+        <span class="management-icon trash-icon" aria-hidden="true"></span>
       </button>
     `;
-    row.querySelector('.minute-minus').addEventListener('click', () => {
-      draft.intervals[index] = Math.max(1, Number(draft.intervals[index]) - 1);
-      renderEditor();
-    });
-    row.querySelector('.minute-plus').addEventListener('click', () => {
-      draft.intervals[index] = Math.min(1440, Number(draft.intervals[index]) + 1);
-      renderEditor();
-    });
-    row.querySelector('.remove-interval').addEventListener('click', () => {
-      if (draft.intervals.length === 1) return;
-      draft.intervals.splice(index, 1);
+    const input = row.querySelector('.minute-value input');
+    input.addEventListener('input', () => {
+      draft.intervals[index] = input.value;
+      delete intervalErrors[index];
+      item.classList.remove('has-error');
+      row.classList.remove('invalid');
+      input.ariaInvalid = 'false';
+      input.setAttribute('aria-describedby', hintId);
+      item.querySelector('.interval-error').hidden = true;
+      item.querySelector('.interval-hint').hidden = false;
       elements.editorError.hidden = true;
-      renderEditor();
+      renderEditorSummary();
+    });
+    input.addEventListener('blur', () => validateIntervalAt(index));
+    bindPressAndHold(row.querySelector('.minute-minus'), () => adjustInterval(index, -1, input, item));
+    bindPressAndHold(row.querySelector('.minute-plus'), () => adjustInterval(index, 1, input, item));
+    row.querySelector('.remove-interval').addEventListener('click', () => {
+      removeIntervalAt(index);
     });
     const dragHandle = row.querySelector('.interval-drag');
     dragHandle.addEventListener('pointerdown', (event) => beginIntervalDrag(event, index));
     dragHandle.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowUp') moveInterval(index, -1);
-      if (event.key === 'ArrowDown') moveInterval(index, 1);
+      if (event.key === 'ArrowUp') { event.preventDefault(); moveInterval(index, -1); }
+      if (event.key === 'ArrowDown') { event.preventDefault(); moveInterval(index, 1); }
     });
-    elements.intervalList.append(row);
+    const hint = document.createElement('small');
+    hint.className = 'interval-hint';
+    hint.id = hintId;
+    hint.textContent = '1–1440 min';
+    hint.hidden = Boolean(error);
+    const message = document.createElement('small');
+    message.className = 'interval-error';
+    message.id = errorId;
+    message.textContent = error ?? '';
+    message.hidden = !error;
+    item.append(row, hint, message);
+    elements.intervalList.append(item);
   });
+}
+
+function adjustInterval(index, delta, input, item) {
+  const current = Number(draft.intervals[index]);
+  const base = Number.isInteger(current) ? current : delta > 0 ? 0 : 2;
+  const value = Math.max(1, Math.min(1440, base + delta));
+  draft.intervals[index] = value;
+  input.value = String(value);
+  delete intervalErrors[index];
+  item.classList.remove('has-error');
+  item.querySelector('.interval-row').classList.remove('invalid');
+  input.ariaInvalid = 'false';
+  input.setAttribute('aria-describedby', `interval-${index}-hint`);
+  item.querySelector('.interval-error').hidden = true;
+  item.querySelector('.interval-hint').hidden = false;
+  elements.editorError.hidden = true;
+  renderEditorSummary();
+}
+
+function bindPressAndHold(button, action) {
+  let holdDelay = null;
+  let repeat = null;
+  const stop = () => {
+    clearTimeout(holdDelay);
+    clearInterval(repeat);
+    holdDelay = null;
+    repeat = null;
+  };
+  button.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.preventDefault();
+    button.setPointerCapture?.(event.pointerId);
+    action();
+    holdDelay = setTimeout(() => { repeat = setInterval(action, 90); }, 420);
+  });
+  button.addEventListener('click', (event) => {
+    if (event.detail === 0) action();
+    else event.preventDefault();
+  });
+  button.addEventListener('pointerup', stop);
+  button.addEventListener('pointercancel', stop);
+  button.addEventListener('lostpointercapture', stop);
+}
+
+function validateIntervalAt(index) {
+  const value = Number(draft.intervals[index]);
+  if (!Number.isInteger(value) || value < 1 || value > 1440) {
+    intervalErrors[index] = 'Enter a duration from 1 to 1440 minutes.';
+  } else {
+    draft.intervals[index] = value;
+    delete intervalErrors[index];
+  }
+  const totalError = validatePreset(draft).total ?? '';
+  elements.editorError.textContent = totalError;
+  elements.editorError.hidden = !totalError;
+  renderEditor();
+}
+
+function removeIntervalAt(index) {
+  if (draft.intervals.length === 1) return;
+  removedInterval = { index, minutes: draft.intervals[index] };
+  draft.intervals.splice(index, 1);
+  intervalErrors = {};
+  elements.editorError.hidden = true;
+  renderEditor();
+  showEditorFeedback('Interval removed', 'UNDO', undoRemovedInterval, 5000);
+}
+
+function undoRemovedInterval() {
+  if (!removedInterval) return;
+  draft.intervals.splice(removedInterval.index, 0, removedInterval.minutes);
+  removedInterval = null;
+  clearEditorFeedback();
+  renderEditor();
 }
 
 function moveInterval(index, direction) {
@@ -373,6 +507,7 @@ function moveInterval(index, direction) {
   if (target < 0 || target >= draft.intervals.length) return;
   const [minutes] = draft.intervals.splice(index, 1);
   draft.intervals.splice(target, 0, minutes);
+  intervalErrors = {};
   renderEditor();
   elements.intervalList.querySelector(`[data-interval-index="${target}"] .interval-drag`)?.focus();
 }
@@ -392,6 +527,7 @@ function continueIntervalDrag(event) {
   if (targetIndex === intervalDrag.index) return;
   const [minutes] = draft.intervals.splice(intervalDrag.index, 1);
   draft.intervals.splice(targetIndex, 0, minutes);
+  intervalErrors = {};
   intervalDrag.index = targetIndex;
   renderEditor();
   elements.intervalList.querySelector(`[data-interval-index="${targetIndex}"]`)?.classList.add('dragging');
@@ -406,16 +542,20 @@ function endIntervalDrag(event) {
 function openGongPicker(kind) {
   activeGongKind = kind;
   const isStartEnd = kind === 'startEndGong';
+  elements.gongPicker.classList.toggle('start-end-picker', isStartEnd);
   elements.gongContext.textContent = isStartEnd ? 'START & END GONG' : 'INTERVAL GONG';
   elements.gongNote.textContent = isStartEnd
     ? 'Used at the start and end of the session. Interval gong is set separately.'
-    : 'Used between consecutive intervals. Start and end gong is set separately.';
+    : 'Used between intervals. Choose None for silence.';
   renderGongOptions();
   elements.gongPicker.hidden = false;
+  pushOverlayHistory('gong');
 }
 
 function renderGongOptions() {
-  const visibleIds = ['gong1', 'gong2', 'gong3', 'none'];
+  const visibleIds = activeGongKind === 'startEndGong'
+    ? ['gong1', 'gong2', 'gong3']
+    : ['gong1', 'gong2', 'gong3', 'none'];
   elements.gongOptions.replaceChildren();
   for (const gong of visibleIds.map((id) => GONGS.find((item) => item.id === id))) {
     const row = document.createElement('div');
@@ -427,7 +567,7 @@ function renderGongOptions() {
     preview.className = 'gong-preview';
     preview.disabled = !gong.file;
     preview.ariaLabel = gong.file ? `Preview ${gong.label}` : 'No preview available';
-    preview.innerHTML = '<img src="./assets/preset-editor/play.svg" alt="">';
+    preview.innerHTML = '<span class="editor-icon play-icon" aria-hidden="true"></span>';
     preview.addEventListener('click', () => playGong(gong.id));
 
     const select = document.createElement('button');
@@ -435,7 +575,7 @@ function renderGongOptions() {
     select.className = 'gong-select';
     select.innerHTML = `
       <span><strong>${escapeHtml(gong.label)}</strong><small>${escapeHtml(gong.description)}</small></span>
-      ${selected ? '<img src="./assets/preset-editor/selected.svg" alt="Selected">' : ''}
+      ${selected ? '<span class="editor-icon selected-icon" role="img" aria-label="Selected"></span>' : ''}
     `;
     select.addEventListener('click', () => {
       draft[activeGongKind] = gong.id;
@@ -447,24 +587,32 @@ function renderGongOptions() {
   }
 }
 
-function closeGongPicker() {
+function closeGongPicker(fromHistory = false) {
+  if (elements.gongPicker.hidden) return;
   elements.gongPicker.hidden = true;
+  elements.gongPicker.classList.remove('start-end-picker');
   activeGongKind = null;
+  if (!fromHistory) releaseOverlayHistory('gong');
 }
 
-function closeEditor(force = false) {
-  if (!draft) return;
-  syncDraftFields();
-  if (!force && JSON.stringify(draft) !== draftOriginal) {
-    askConfirmation('Discard changes?', 'Your preset changes have not been saved.', 'Discard', () => closeEditor(true));
+function closeEditor(force = false, fromHistory = false) {
+  if (!draft || savingDraft) return;
+  if (!force && draftIsDirty()) {
+    askConfirmation('Discard changes?', 'Your preset changes have not been saved.', 'DISCARD', () => closeEditor(true, true), 'discard');
     return;
   }
   document.activeElement?.blur();
-  closeGongPicker();
+  if (!elements.gongPicker.hidden) closeGongPicker(true);
   elements.editor.hidden = true;
   window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  clearEditorFeedback();
   draft = null;
   editingId = null;
+  intervalErrors = {};
+  removedInterval = null;
+  managing = false;
+  if (!fromHistory) releaseOverlayHistory('editor');
+  render();
 }
 
 function syncDraftFields() {
@@ -472,25 +620,65 @@ function syncDraftFields() {
   draft.mode = elements.editor.querySelector('[name="mode"]:checked').value;
 }
 
-function saveDraft(event) {
+function draftIsDirty() {
+  if (!draft) return false;
+  syncDraftFields();
+  return JSON.stringify(draft) !== draftOriginal;
+}
+
+async function saveDraft(event) {
   event.preventDefault();
+  if (savingDraft) return;
   syncDraftFields();
   const errors = validatePreset(draft);
   if (Object.keys(errors).length) {
-    elements.editorError.textContent = errors.total ?? errors[Object.keys(errors)[0]];
-    elements.editorError.hidden = false;
+    intervalErrors = Object.fromEntries(Object.entries(errors).filter(([key]) => /^\d+$/.test(key)));
+    elements.editorError.textContent = errors.total ?? errors.intervals ?? errors.startEndGong ?? '';
+    elements.editorError.hidden = !elements.editorError.textContent;
+    renderEditor();
+    const firstInvalid = Number(Object.keys(intervalErrors)[0]);
+    if (Number.isInteger(firstInvalid)) {
+      requestAnimationFrame(() => elements.intervalList.querySelector(`[data-interval-index="${firstInvalid}"] input`)?.focus());
+    } else {
+      elements.editorError.focus?.();
+    }
     return;
   }
-  draft.intervals = draft.intervals.map(Number);
-  if (!draft.name) draft.name = generatedName(totalMinutes(draft), state.presets, editingId);
+  intervalErrors = {};
+  elements.editorError.hidden = true;
+  clearEditorFeedback();
+  const savedPreset = structuredClone(draft);
+  savedPreset.intervals = savedPreset.intervals.map(Number);
+  if (!savedPreset.name) savedPreset.name = generatedName(totalMinutes(savedPreset), state.presets, editingId);
+  const nextPresets = state.presets.map((preset) => structuredClone(preset));
   const existing = state.presets.findIndex((preset) => preset.id === editingId);
-  if (existing >= 0) state.presets[existing] = structuredClone(draft);
-  else state.presets.push(structuredClone(draft));
-  state.selectedId = draft.id;
-  saveState(state);
+  if (existing >= 0) nextPresets[existing] = savedPreset;
+  else nextPresets.push(savedPreset);
+  const nextState = { theme: state.theme, presets: nextPresets, selectedId: savedPreset.id };
+  setSavingState(true);
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  if (!saveState(nextState)) {
+    setSavingState(false);
+    showEditorFeedback(
+      'We couldn’t save this preset. Try again.',
+      'Try again',
+      () => elements.editorForm.requestSubmit(),
+    );
+    return;
+  }
+  state.presets = nextPresets;
+  state.selectedId = savedPreset.id;
+  setSavingState(false);
   closeEditor(true);
   render();
   requestAnimationFrame(() => elements.presetList.querySelector('.active')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+}
+
+function setSavingState(saving) {
+  savingDraft = saving;
+  elements.savePreset.disabled = saving;
+  elements.savePreset.textContent = saving ? 'Saving…' : 'Save';
+  elements.editor.classList.toggle('saving', saving);
 }
 
 function askConfirmation(title, message, acceptLabel, action, kind = 'default') {
@@ -498,7 +686,9 @@ function askConfirmation(title, message, acceptLabel, action, kind = 'default') 
   elements.confirmTitle.textContent = title;
   elements.confirmMessage.textContent = message;
   elements.confirmAccept.textContent = acceptLabel;
+  elements.confirm.dataset.kind = kind;
   elements.confirm.classList.toggle('delete-confirmation', kind === 'delete');
+  elements.confirm.classList.toggle('end-confirmation', kind === 'end');
   elements.confirm.hidden = false;
   pushOverlayHistory('confirmation');
   elements.confirmCancel.focus();
@@ -509,19 +699,39 @@ function closeConfirmation(fromHistory = false) {
   pendingConfirmation = null;
   elements.confirm.hidden = true;
   elements.confirm.classList.remove('delete-confirmation');
+  elements.confirm.classList.remove('end-confirmation');
+  delete elements.confirm.dataset.kind;
   if (!fromHistory) releaseOverlayHistory('confirmation');
 }
 
 function pushOverlayHistory(name) {
-  if (historyOverlay) return;
-  historyOverlay = name;
-  history.pushState({ meditationTimerOverlay: name }, '');
+  historyOverlays.push(name);
+  history.pushState({ meditationTimerOverlay: name, depth: historyOverlays.length }, '');
 }
 
 function releaseOverlayHistory(name) {
-  if (historyOverlay !== name) return;
-  historyOverlay = null;
+  if (historyOverlays.at(-1) !== name) return;
+  historyOverlays.pop();
+  suppressedPopstates += 1;
   history.back();
+}
+
+function showEditorFeedback(message, actionLabel, action, duration = 0) {
+  clearTimeout(editorFeedbackTimeout);
+  elements.editorFeedbackMessage.textContent = message;
+  elements.editorFeedbackAction.textContent = actionLabel;
+  elements.editorFeedbackAction.onclick = action;
+  elements.editorFeedback.hidden = false;
+  if (duration) editorFeedbackTimeout = setTimeout(clearEditorFeedback, duration);
+}
+
+function clearEditorFeedback() {
+  clearTimeout(editorFeedbackTimeout);
+  editorFeedbackTimeout = null;
+  elements.editorFeedback.hidden = true;
+  elements.editorFeedbackMessage.textContent = '';
+  elements.editorFeedbackAction.textContent = '';
+  elements.editorFeedbackAction.onclick = null;
 }
 
 function showToast(message) {
@@ -546,22 +756,30 @@ document.addEventListener('pointerdown', (event) => {
 });
 elements.primaryAction.addEventListener('click', primaryAction);
 elements.endSession.addEventListener('click', () => askConfirmation(
-  'End meditation?',
-  'This session will stop and will not be saved to history in the MVP.',
-  'End session',
+  'End session?',
+  'Your current session will end. The end gong will not play.',
+  'END SESSION',
   async () => { timer.reset(); await releaseWakeLock(); },
+  'end',
 ));
 elements.managePresets.addEventListener('click', () => { managing = !managing; renderPresets(); });
 elements.addPreset.addEventListener('click', () => openEditor());
-elements.closeEditor.addEventListener('click', () => closeEditor());
 elements.cancelEditor.addEventListener('click', () => closeEditor());
 elements.editorForm.addEventListener('submit', saveDraft);
-elements.addInterval.addEventListener('click', () => { draft.intervals.push(10); renderEditor(); });
+elements.addInterval.addEventListener('click', () => {
+  draft.intervals.push(10);
+  intervalErrors = {};
+  clearEditorFeedback();
+  renderEditor();
+  const index = draft.intervals.length - 1;
+  requestAnimationFrame(() => elements.intervalList.querySelector(`[data-interval-index="${index}"] input`)?.focus());
+});
 elements.startEndSoundField.addEventListener('click', () => openGongPicker('startEndGong'));
 elements.intervalSoundField.addEventListener('click', () => openGongPicker('intervalGong'));
 elements.gongDone.addEventListener('click', closeGongPicker);
 elements.gongScrim.addEventListener('click', closeGongPicker);
 elements.editor.querySelectorAll('[name="mode"]').forEach((radio) => radio.addEventListener('change', (event) => { draft.mode = event.target.value; }));
+elements.presetName.addEventListener('input', () => { if (draft) draft.name = elements.presetName.value.trim(); });
 document.addEventListener('pointermove', continueIntervalDrag);
 document.addEventListener('pointermove', continuePresetDrag);
 document.addEventListener('pointerup', endIntervalDrag);
@@ -569,28 +787,55 @@ document.addEventListener('pointerup', endPresetDrag);
 document.addEventListener('pointercancel', endIntervalDrag);
 document.addEventListener('pointercancel', endPresetDrag);
 elements.confirmCancel.addEventListener('click', () => closeConfirmation());
+elements.confirm.addEventListener('click', (event) => {
+  if (event.target === elements.confirm) closeConfirmation();
+});
 elements.confirmAccept.addEventListener('click', () => {
   const action = pendingConfirmation;
+  const kind = elements.confirm.dataset.kind;
+  if (kind === 'discard') {
+    closeConfirmation(true);
+    if (historyOverlays.at(-1) === 'confirmation') historyOverlays.pop();
+    if (historyOverlays.at(-1) === 'editor') historyOverlays.pop();
+    suppressedPopstates += 1;
+    history.go(-2);
+    action?.();
+    return;
+  }
   closeConfirmation();
   action?.();
 });
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   if (!elements.confirm.hidden) closeConfirmation();
+  else if (!elements.gongPicker.hidden) closeGongPicker();
   else if (!elements.themePopover.hidden) closeThemePopover();
+  else if (!elements.editor.hidden) closeEditor();
 });
 window.addEventListener('popstate', () => {
-  const overlay = historyOverlay;
-  historyOverlay = null;
+  if (suppressedPopstates > 0) {
+    suppressedPopstates -= 1;
+    return;
+  }
+  const overlay = historyOverlays.pop();
   if (overlay === 'confirmation') closeConfirmation(true);
+  if (overlay === 'gong') closeGongPicker(true);
   if (overlay === 'settings') closeThemePopover(true);
+  if (overlay === 'editor') {
+    if (draftIsDirty()) {
+      historyOverlays.push('editor');
+      history.pushState({ meditationTimerOverlay: 'editor', depth: historyOverlays.length }, '');
+      closeEditor(false, true);
+    } else {
+      closeEditor(true, true);
+    }
+  }
 });
 timer.addEventListener('change', render);
 timer.addEventListener('interval', () => playGong(timer.preset.intervalGong));
-timer.addEventListener('complete', async () => {
-  await playGong(timer.preset.startEndGong);
-  await releaseWakeLock();
-  showToast('Session complete.');
+timer.addEventListener('complete', (event) => {
+  void playGong(event.detail.preset.startEndGong);
+  void releaseWakeLock();
 });
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible') {
@@ -599,7 +844,7 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 window.addEventListener('beforeunload', (event) => {
-  if (draft && JSON.stringify(draft) !== draftOriginal) {
+  if (draftIsDirty()) {
     event.preventDefault();
     event.returnValue = '';
   }

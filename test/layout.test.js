@@ -6,6 +6,7 @@ const css = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8'
 const serviceWorker = await readFile(new URL('../src/sw.js', import.meta.url), 'utf8');
 const indexHtml = await readFile(new URL('../src/index.html', import.meta.url), 'utf8');
 const appJs = await readFile(new URL('../src/app.js', import.meta.url), 'utf8');
+const dragHandle = await readFile(new URL('../src/assets/icons/drag_handle.svg', import.meta.url), 'utf8');
 
 function rule(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -34,20 +35,20 @@ test('the safe area remains scrollable end padding rather than a fixed bar', () 
   assert.match(presetList, /padding:[^;]*--standalone-bottom-compensation/);
 });
 
-test('the service worker and package metadata publish version 6 without showing it in settings', () => {
-  assert.match(serviceWorker, /meditation-timer-pwa-v6/);
-  assert.match(indexHtml, /application-version" content="v6/);
-  assert.doesNotMatch(indexHtml, /Build v6/);
-  assert.match(indexHtml, /styles\.css\?v=6/);
-  assert.match(indexHtml, /app\.js\?v=6/);
-  assert.match(serviceWorker, /domain\.js\?v=6/);
-  assert.match(serviceWorker, /storage\.js\?v=6/);
-  assert.match(serviceWorker, /timer-engine\.js\?v=6/);
-  assert.match(serviceWorker, /viewport\.js\?v=6/);
-  assert.match(appJs, /domain\.js\?v=6/);
-  assert.match(appJs, /storage\.js\?v=6/);
-  assert.match(appJs, /timer-engine\.js\?v=6/);
-  assert.match(appJs, /viewport\.js\?v=6/);
+test('the service worker and package metadata publish version 8 without showing it in settings', () => {
+  assert.match(serviceWorker, /meditation-timer-pwa-v8/);
+  assert.match(indexHtml, /application-version" content="v8/);
+  assert.doesNotMatch(indexHtml, /Build v8/);
+  assert.match(indexHtml, /styles\.css\?v=8/);
+  assert.match(indexHtml, /app\.js\?v=8/);
+  assert.match(serviceWorker, /domain\.js\?v=8/);
+  assert.match(serviceWorker, /storage\.js\?v=8/);
+  assert.match(serviceWorker, /timer-engine\.js\?v=8/);
+  assert.match(serviceWorker, /viewport\.js\?v=8/);
+  assert.match(appJs, /domain\.js\?v=8/);
+  assert.match(appJs, /storage\.js\?v=8/);
+  assert.match(appJs, /timer-engine\.js\?v=8/);
+  assert.match(appJs, /viewport\.js\?v=8/);
 });
 
 test('settings and preset management use the current Figma contract', () => {
@@ -61,8 +62,43 @@ test('settings and preset management use the current Figma contract', () => {
   assert.match(indexHtml, /CHOOSE COLOR/);
   assert.doesNotMatch(indexHtml, /APPEARANCE|Choose a visual profile|brush_icon/);
   assert.doesNotMatch(indexHtml, /class="ambient|editor-ambient/);
-  assert.match(appJs, /assets\/icons\/trash\.svg/);
+  assert.match(css, /\.trash-icon[^}]*assets\/icons\/trash\.svg/s);
   assert.doesNotMatch(appJs, /actionButton\('↑'|actionButton\('↓'|actionButton\('✎'|actionButton\('×'/);
+});
+
+test('preset editor follows the synchronized Figma behavior contract', () => {
+  assert.match(indexHtml, />Create a preset<\/h2>/);
+  assert.doesNotMatch(indexHtml, /editor-back|id="closeEditor"|aria-label="Go back"/);
+  assert.match(appJs, /type="text" inputmode="numeric" pattern="\[0-9\]\*"/);
+  assert.match(appJs, /function bindPressAndHold/);
+  assert.match(appJs, /Interval removed/);
+  assert.match(appJs, /We couldn’t save this preset\. Try again\./);
+  assert.match(appJs, /Saving…/);
+  assert.match(css, /\.gong-picker\.start-end-picker \.gong-sheet[^}]*482px/);
+});
+
+test('empty and End session states use the approved copy and safe confirmation', () => {
+  assert.match(appJs, /NO PRESETS YET/);
+  assert.match(appJs, /Create your first preset/);
+  assert.match(appJs, /Add a preset to begin/);
+  assert.match(appJs, /Your current session will end\. The end gong will not play\./);
+  assert.match(appJs, /'END SESSION'/);
+  assert.match(appJs, /elements\.confirmCancel\.focus\(\)/);
+  assert.match(appJs, /timer\.addEventListener\('complete',[\s\S]*playGong\(event\.detail\.preset\.startEndGong\)/);
+  assert.doesNotMatch(appJs, /Session complete\./);
+});
+
+test('preset and interval reordering share one complete six-dot asset', () => {
+  assert.equal((dragHandle.match(/<circle/g) ?? []).length, 6);
+  assert.match(css, /\.drag-icon[^}]*assets\/icons\/drag_handle\.svg/s);
+  assert.doesNotMatch(appJs, /preset-editor\/drag_handle\.svg/);
+  assert.doesNotMatch(serviceWorker, /preset-editor\/drag_handle\.svg/);
+});
+
+test('edit mode keeps presets selectable and closes after leaving the editor', () => {
+  assert.match(appJs, /class="select-preset"/);
+  assert.match(appJs, /querySelector\('\.select-preset'\)\.addEventListener\('click', \(\) => selectPreset\(preset\)\)/);
+  assert.match(appJs, /function closeEditor[\s\S]*managing = false;[\s\S]*render\(\);/);
 });
 
 test('desktop layout exposes Figma-sized timer, settings, rows, and dialog', () => {

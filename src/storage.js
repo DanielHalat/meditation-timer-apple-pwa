@@ -1,4 +1,4 @@
-import { defaultPresets, THEMES } from './domain.js?v=6';
+import { defaultPresets, normalizePresetSounds, THEMES } from './domain.js?v=8';
 
 const STORAGE_KEY = 'meditation-timer.apple-pwa.v1';
 
@@ -6,10 +6,14 @@ export function loadState() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (Array.isArray(stored?.presets)) {
+      const presets = stored.presets.map(normalizePresetSounds);
+      const selectedId = presets.some((preset) => preset.id === stored.selectedId)
+        ? stored.selectedId
+        : presets[0]?.id ?? null;
       return {
         theme: THEMES.includes(stored.theme) ? stored.theme : 'green',
-        presets: stored.presets,
-        selectedId: stored.selectedId ?? stored.presets[0]?.id ?? null,
+        presets,
+        selectedId,
       };
     }
   } catch {
@@ -20,9 +24,14 @@ export function loadState() {
 }
 
 export function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    theme: state.theme,
-    presets: state.presets,
-    selectedId: state.selectedId,
-  }));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      theme: state.theme,
+      presets: state.presets,
+      selectedId: state.selectedId,
+    }));
+    return true;
+  } catch {
+    return false;
+  }
 }

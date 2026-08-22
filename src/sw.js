@@ -1,13 +1,13 @@
-const CACHE_NAME = 'meditation-timer-pwa-v6';
+const CACHE_NAME = 'meditation-timer-pwa-v8';
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css?v=6',
-  './app.js?v=6',
-  './domain.js?v=6',
-  './storage.js?v=6',
-  './timer-engine.js?v=6',
-  './viewport.js?v=6',
+  './styles.css?v=8',
+  './app.js?v=8',
+  './domain.js?v=8',
+  './storage.js?v=8',
+  './timer-engine.js?v=8',
+  './viewport.js?v=8',
   './manifest.webmanifest',
   './assets/Nunito-VariableFont_wght.ttf',
   './assets/icons/drag_handle.svg',
@@ -23,7 +23,6 @@ const APP_SHELL = [
   './assets/gong3.wav',
   './assets/gong4.wav',
   './assets/preset-editor/chevron_right.svg',
-  './assets/preset-editor/drag_handle.svg',
   './assets/preset-editor/minus.svg',
   './assets/preset-editor/play.svg',
   './assets/preset-editor/plus.svg',

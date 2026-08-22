@@ -19,7 +19,7 @@ export function defaultPresets() {
 }
 
 export function createDraft(preset) {
-  return preset ? structuredClone(preset) : {
+  return preset ? normalizePresetSounds(structuredClone(preset)) : {
     id: crypto.randomUUID?.() ?? `preset-${Date.now()}`,
     name: '',
     intervals: [10],
@@ -27,6 +27,16 @@ export function createDraft(preset) {
     startEndGong: 'gong1',
     intervalGong: 'gong2',
   };
+}
+
+export function normalizePresetSounds(preset) {
+  const startEndGong = GONGS.some((gong) => gong.id === preset.startEndGong && gong.file)
+    ? preset.startEndGong
+    : 'gong1';
+  const intervalGong = GONGS.some((gong) => gong.id === preset.intervalGong)
+    ? preset.intervalGong
+    : 'gong2';
+  return { ...preset, startEndGong, intervalGong };
 }
 
 export function totalMinutes(preset) {
@@ -49,13 +59,16 @@ export function generatedName(minutes, presets, excludedId = null) {
 
 export function validatePreset(preset) {
   const errors = {};
+  if (!GONGS.some((gong) => gong.id === preset.startEndGong && gong.file)) {
+    errors.startEndGong = 'Choose a start and end gong.';
+  }
   if (!preset.intervals.length) errors.intervals = 'Add at least one interval.';
   preset.intervals.forEach((minutes, index) => {
     if (!Number.isInteger(Number(minutes)) || Number(minutes) < 1 || Number(minutes) > 1440) {
-      errors[index] = 'Use a whole number from 1 to 1440.';
+      errors[index] = 'Enter a duration from 1 to 1440 minutes.';
     }
   });
-  if (totalMinutes(preset) > 1440) errors.total = 'The session cannot exceed 1440 minutes.';
+  if (totalMinutes(preset) > 1440) errors.total = 'Total duration cannot exceed 1440 minutes.';
   return errors;
 }
 

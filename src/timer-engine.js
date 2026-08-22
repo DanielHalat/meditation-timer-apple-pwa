@@ -91,7 +91,10 @@ export class TimerEngine extends EventTarget {
       this.accumulatedMs = this.durationMs;
       this.state = 'completed';
       clearInterval(this.ticker);
-      this.dispatchEvent(new CustomEvent('complete'));
+      const preset = structuredClone(this.preset);
+      this.dispatchEvent(new CustomEvent('complete', { detail: { preset } }));
+      if (this.state === 'completed') this.reset();
+      return;
     }
     this.#emit();
   }

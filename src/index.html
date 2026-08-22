@@ -7,13 +7,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Meditation">
-  <meta name="application-version" content="v6">
+  <meta name="application-version" content="v8">
   <meta name="format-detection" content="telephone=no">
   <title>Meditation Timer</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=6">
-  <script type="module" src="./app.js?v=6"></script>
+  <link rel="stylesheet" href="./styles.css?v=8">
+  <script type="module" src="./app.js?v=8"></script>
 </head>
 <body data-theme="green">
   <main class="app" id="app">
@@ -25,7 +25,7 @@
     </button>
 
     <section class="session-block" id="sessionBlock" aria-live="polite">
-      <div class="session-label">CURRENT PRESET</div>
+      <div class="session-label" id="sessionLabel">CURRENT PRESET</div>
       <h1 id="sessionTitle">Meditation 30 min</h1>
       <div class="timer-dial" id="timerDial">
         <div class="timer-halo"></div>
@@ -65,8 +65,7 @@
 
   <section class="preset-editor" id="editorSheet" hidden aria-modal="true" role="dialog" aria-labelledby="editorTitle">
     <header class="editor-header">
-      <button class="editor-back" id="closeEditor" type="button" aria-label="Go back">‹</button>
-      <h2 id="editorTitle">New preset</h2>
+      <h2 id="editorTitle">Create a preset</h2>
       <button class="editor-cancel" id="cancelEditor" type="button">Cancel</button>
     </header>
 
@@ -89,24 +88,28 @@
         <div class="sound-fields">
           <button class="sound-field" id="startEndSoundField" type="button" data-gong-kind="startEndGong">
             <span><small>START &amp; END</small><strong id="startEndGongLabel">Deep gong</strong></span>
-            <img src="./assets/preset-editor/chevron_right.svg" alt="">
+            <span class="editor-icon chevron-icon" aria-hidden="true"></span>
           </button>
           <button class="sound-field" id="intervalSoundField" type="button" data-gong-kind="intervalGong">
             <span><small>INTERVAL GONG</small><strong id="intervalGongLabel">Gentle bowl</strong></span>
-            <img src="./assets/preset-editor/chevron_right.svg" alt="">
+            <span class="editor-icon chevron-icon" aria-hidden="true"></span>
           </button>
         </div>
       </section>
 
       <section class="editor-section sequence-section">
         <h3 class="editor-label" id="sequenceLabel">SESSION SEQUENCE · 10 MIN</h3>
-        <div id="editorError" class="form-error" hidden></div>
+        <div id="editorError" class="form-error" tabindex="-1" hidden></div>
         <div class="interval-list" id="intervalList"></div>
         <button class="add-interval" id="addInterval" type="button">
-          <img src="./assets/preset-editor/plus.svg" alt="">
+          <span class="editor-icon plus-icon" aria-hidden="true"></span>
           <span>Add interval</span>
         </button>
         <p class="editor-total" id="editorTotal">1 interval&nbsp; · &nbsp;10 min</p>
+        <div class="editor-feedback" id="editorFeedback" hidden role="status">
+          <span id="editorFeedbackMessage"></span>
+          <button id="editorFeedbackAction" type="button"></button>
+        </div>
       </section>
     </form>
 
@@ -131,12 +134,12 @@
   </div>
 
   <div class="dialog-backdrop" id="confirmDialog" hidden>
-    <section class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
-      <h2 id="confirmTitle">End meditation?</h2>
+    <section class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <h2 id="confirmTitle">End session?</h2>
       <p id="confirmMessage"></p>
       <div class="confirm-actions">
-        <button id="confirmCancel" type="button">Cancel</button>
-        <button id="confirmAccept" type="button">End session</button>
+        <button id="confirmCancel" type="button">CANCEL</button>
+        <button id="confirmAccept" type="button">END SESSION</button>
       </div>
     </section>
   </div>
