@@ -8,10 +8,10 @@ import {
   THEMES,
   totalMinutes,
   validatePreset,
-} from './domain.js?v=8';
-import { loadState, saveState } from './storage.js?v=8';
-import { TimerEngine } from './timer-engine.js?v=8';
-import { installStandaloneViewportCompensation } from './viewport.js?v=8';
+} from './domain.js?v=9';
+import { loadState, saveState } from './storage.js?v=9';
+import { TimerEngine } from './timer-engine.js?v=9';
+import { installStandaloneViewportCompensation } from './viewport.js?v=9';
 
 const $ = (selector) => document.querySelector(selector);
 const state = loadState();
@@ -91,10 +91,15 @@ function applyTheme(theme) {
   state.theme = theme;
   document.body.dataset.theme = theme;
   const colors = {
-    green: '#59E5B5',
     light: '#F5F5F2',
     dark: '#121212',
-    modern: '#FAFAF8',
+    verdant: '#7ED6A7',
+    solar: '#FFD54F',
+    cobalt: '#536BDA',
+    ember: '#F06A67',
+    azure: '#68CBE7',
+    lavender: '#B7A4E8',
+    coral: '#F49A7B',
   };
   $('meta[name="theme-color"]').content = colors[theme];
   saveState(state);
@@ -245,13 +250,34 @@ function deletePreset(preset) {
 
 function renderThemes() {
   elements.themeOptions.replaceChildren();
-  const labels = { green: 'Green', light: 'Light', dark: 'Dark', modern: 'Modern' };
-  const colors = { green: '#59E5B5', light: '#F5F5F2', dark: '#121212', modern: '#22E243' };
+  const labels = {
+    light: 'Light',
+    dark: 'Dark',
+    verdant: 'Verdant Green',
+    solar: 'Solar Yellow',
+    cobalt: 'Cobalt Blue',
+    ember: 'Ember Red',
+    azure: 'Azure Blue',
+    lavender: 'Digital Lavender',
+    coral: 'Warm Coral',
+  };
+  const colors = {
+    light: '#F5F5F2',
+    dark: '#121212',
+    verdant: '#7ED6A7',
+    solar: '#FFD54F',
+    cobalt: '#536BDA',
+    ember: '#F06A67',
+    azure: '#68CBE7',
+    lavender: '#B7A4E8',
+    coral: '#F49A7B',
+  };
   for (const theme of THEMES) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `theme-option${theme === state.theme ? ' active' : ''}`;
     button.ariaPressed = String(theme === state.theme);
+    button.ariaLabel = `Use ${labels[theme]} theme`;
     button.innerHTML = `<span class="theme-swatch" style="background:${colors[theme]}"></span><strong>${labels[theme]}</strong>`;
     button.addEventListener('click', () => {
       applyTheme(theme);

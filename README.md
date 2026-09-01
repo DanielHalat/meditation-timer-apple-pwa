@@ -1,16 +1,16 @@
 # Meditation Timer — Apple PWA
 
-Samodzielna, instalowalna wersja PWA przygotowana przede wszystkim do testów na iPhonie. Nie wymaga Xcode, Maca ani konta Apple Developer. Źródłem zachowania jest `Research/Meditation Timer - Ideas.md`, a źródłem układu mobilnego — aktualne ramki Green, Light, Dark i Active session w Figmie.
+Samodzielna, instalowalna wersja PWA przygotowana przede wszystkim do testów na iPhonie. Nie wymaga Xcode, Maca ani konta Apple Developer. Źródłem zachowania jest `Research/Meditation Timer - Ideas.md`, a źródłem układu mobilnego — aktualne ramki bazowe, stany Active session oraz zatwierdzone palety na Page `Mobile — Color Explorations 2026` w Figmie.
 
-**Wersja źródła:** v8 / `0.2.0`
+**Wersja źródła:** v9 / `0.3.0`
 
 **Wersja online:** https://danielhalat.github.io/meditation-timer-apple-pwa/
 
 ## Co zawiera
 
 - instalację na ekranie początkowym iPhone’a w trybie `standalone`;
-- cztery motywy: Green, Light, Dark i Modern; Modern zachowuje bazową geometrię aplikacji i przenosi wyłącznie paletę ZEN.COM inspired z aktualnej Figmy;
-- globalny przycisk ustawień z ikoną trzech poziomych kresek oraz otwierany od góry panel `CHOOSE COLOR` z trzema kolumnami; etykieta korzysta z tej samej typografii co `YOUR PRESETS`, a panel jest wspólnym wzorcem dla PWA i Androida i w przyszłości może otrzymać kolejne sekcje, np. język lub wsparcie aplikacji;
+- dziewięć motywów: Light, Dark, Verdant Green, Solar Yellow, Cobalt Blue, Ember Red, Azure Blue, Digital Lavender i Warm Coral; wszystkie zachowują tę samą geometrię aplikacji i różnią się tokenami koloru oraz krycia;
+- globalny przycisk ustawień z ikoną trzech poziomych kresek oraz otwierany od góry panel `CHOOSE COLOR` z siatką 3 × 3; etykieta korzysta z tej samej typografii co `YOUR PRESETS`, a panel jest wspólnym wzorcem dla PWA i Androida i w przyszłości może otrzymać kolejne sekcje, np. język lub wsparcie aplikacji;
 - płaski canvas bez warstw `Ambient line`, `Ambient glow` i `Ambient haze` we wszystkich motywach i stanach; zasada nie usuwa funkcjonalnej poświaty, pierścieni i łuku postępu samego timera;
 - timer countdown/count up, pauzę, wznowienie, potwierdzone zakończenie i wskaźnik postępu; ręczne `End session` informuje, że nie odtwarza gongu końcowego;
 - cztery startowe presety oraz lokalne dodawanie, edycję, usuwanie i zmianę kolejności;
@@ -51,7 +51,7 @@ PWA musi być umieszczona pod publicznym adresem HTTPS. Można opublikować zawa
 
 ## Aktualizacja zainstalowanej PWA
 
-Po opublikowaniu nowej wersji iOS pobiera aktualizację automatycznie przy kolejnym uruchomieniu aplikacji z dostępem do internetu. Service worker wymusza sprawdzenie własnej aktualizacji, nawigacja preferuje sieć, a pliki wersji v8 mają jawny identyfikator cache. Pierwsze otwarcie po publikacji może jeszcze pokazać poprzednią wersję, gdy w tle aktualizuje się cache. W takim przypadku zamknij PWA z przełącznika aplikacji i uruchom ją ponownie. Pierwszy etap panelu ustawień pokazuje wyłącznie `CHOOSE COLOR` i nazwy profili, dlatego numer aktywnej paczki należy potwierdzić w metadanych paczki oraz podsumowaniu buildu; każda publikacja nadal wymaga odrębnej wersji cache. Nie trzeba usuwać ikony ani dodawać aplikacji ponownie, a lokalne presety pozostają zachowane.
+Po opublikowaniu nowej wersji iOS pobiera aktualizację automatycznie przy kolejnym uruchomieniu aplikacji z dostępem do internetu. Service worker wymusza sprawdzenie własnej aktualizacji, nawigacja preferuje sieć, a pliki wersji v9 mają jawny identyfikator cache. Pierwsze otwarcie po publikacji może jeszcze pokazać poprzednią wersję, gdy w tle aktualizuje się cache. W takim przypadku zamknij PWA z przełącznika aplikacji i uruchom ją ponownie. Pierwszy etap panelu ustawień pokazuje wyłącznie `CHOOSE COLOR` i nazwy profili, dlatego numer aktywnej paczki należy potwierdzić w metadanych paczki oraz podsumowaniu buildu; każda publikacja nadal wymaga odrębnej wersji cache. Nie trzeba usuwać ikony ani dodawać aplikacji ponownie, a lokalne presety pozostają zachowane. Zapisany wcześniej motyw Green jest przy aktualizacji migrowany do Verdant Green, a wycofany Modern — do Light; presety użytkownika pozostają bez zmian.
 
 ## Ważne ograniczenie iOS
 

@@ -35,27 +35,27 @@ test('the safe area remains scrollable end padding rather than a fixed bar', () 
   assert.match(presetList, /padding:[^;]*--standalone-bottom-compensation/);
 });
 
-test('the service worker and package metadata publish version 8 without showing it in settings', () => {
-  assert.match(serviceWorker, /meditation-timer-pwa-v8/);
-  assert.match(indexHtml, /application-version" content="v8/);
-  assert.doesNotMatch(indexHtml, /Build v8/);
-  assert.match(indexHtml, /styles\.css\?v=8/);
-  assert.match(indexHtml, /app\.js\?v=8/);
-  assert.match(serviceWorker, /domain\.js\?v=8/);
-  assert.match(serviceWorker, /storage\.js\?v=8/);
-  assert.match(serviceWorker, /timer-engine\.js\?v=8/);
-  assert.match(serviceWorker, /viewport\.js\?v=8/);
-  assert.match(appJs, /domain\.js\?v=8/);
-  assert.match(appJs, /storage\.js\?v=8/);
-  assert.match(appJs, /timer-engine\.js\?v=8/);
-  assert.match(appJs, /viewport\.js\?v=8/);
+test('the service worker and package metadata publish version 9 without showing it in settings', () => {
+  assert.match(serviceWorker, /meditation-timer-pwa-v9/);
+  assert.match(indexHtml, /application-version" content="v9/);
+  assert.doesNotMatch(indexHtml, /Build v9/);
+  assert.match(indexHtml, /styles\.css\?v=9/);
+  assert.match(indexHtml, /app\.js\?v=9/);
+  assert.match(serviceWorker, /domain\.js\?v=9/);
+  assert.match(serviceWorker, /storage\.js\?v=9/);
+  assert.match(serviceWorker, /timer-engine\.js\?v=9/);
+  assert.match(serviceWorker, /viewport\.js\?v=9/);
+  assert.match(appJs, /domain\.js\?v=9/);
+  assert.match(appJs, /storage\.js\?v=9/);
+  assert.match(appJs, /timer-engine\.js\?v=9/);
+  assert.match(appJs, /viewport\.js\?v=9/);
 });
 
 test('settings and preset management use the current Figma contract', () => {
   const settings = rule('.settings-sheet');
   const editRow = rule('.preset-row.edit-mode');
 
-  assert.match(settings, /height:\s*206px/);
+  assert.match(settings, /height:\s*268px/);
   assert.match(settings, /border-radius:\s*0 0 24px 24px/);
   assert.match(editRow, /height:\s*49px/);
   assert.match(indexHtml, /aria-label="Open settings"/);
@@ -104,16 +104,29 @@ test('edit mode keeps presets selectable and closes after leaving the editor', (
 test('desktop layout exposes Figma-sized timer, settings, rows, and dialog', () => {
   assert.match(css, /@media \(min-width:\s*1200px\)/);
   assert.match(css, /\.timer-dial\s*\{[^}]*width:\s*476px[^}]*height:\s*476px/s);
-  assert.match(css, /\.settings-sheet\s*\{[^}]*width:\s*520px[^}]*height:\s*196px/s);
+  assert.match(css, /\.settings-sheet\s*\{[^}]*width:\s*520px[^}]*height:\s*268px/s);
   assert.match(css, /\.preset-row\.edit-mode\s*\{[^}]*width:\s*400px[^}]*height:\s*82px/s);
   assert.match(css, /\.confirm-card\s*\{[^}]*width:\s*420px/s);
 });
 
-test('the Modern theme uses the ZEN-inspired palette without changing layout rules', () => {
-  const modern = rule("body[data-theme='modern']");
+test('all seven approved Figma palettes expose their canvas and timer colors', () => {
+  const expected = {
+    verdant: ['#7ed6a7', '#a6e7c2', '#8ad9af', '#276a4a'],
+    solar: ['#ffd54f', '#ffe78a', '#f4c937', '#815f00'],
+    cobalt: ['#536bda', '#6f84e4', '#6178df', '#fff'],
+    ember: ['#f06a67', '#ff9690', '#e75a5b', '#8c202c'],
+    azure: ['#68cbe7', '#98e3f3', '#76d5ea', '#08768f'],
+    lavender: ['#b7a4e8', '#d1c5f4', '#aa96e0', '#6046a8'],
+    coral: ['#f49a7b', '#ffc3ae', '#ec896d', '#9a3e2b'],
+  };
 
-  assert.match(modern, /--canvas:\s*#fafaf8/);
-  assert.match(modern, /--ink:\s*#0a0a0a/);
-  assert.match(modern, /--progress:\s*#22e243/);
-  assert.match(modern, /--active:\s*#222/);
+  for (const [theme, colors] of Object.entries(expected)) {
+    const escaped = `body[data-theme='${theme}']`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const themeRules = [...css.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, 'g'))];
+    const themeRule = themeRules.find((match) => match[1].includes('--canvas:'))?.[1];
+    assert.ok(themeRule, `Missing palette rule for ${theme}`);
+    for (const color of colors) assert.match(themeRule, new RegExp(color));
+  }
+  assert.match(css, /\.timer-mode, \.timer-value, \.timer-interval\s*\{[^}]*color:\s*var\(--timer-ink/s);
+  assert.doesNotMatch(css, /data-theme='modern'/);
 });

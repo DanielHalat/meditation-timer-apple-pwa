@@ -1,4 +1,4 @@
-import { defaultPresets, normalizePresetSounds, THEMES } from './domain.js?v=8';
+import { defaultPresets, normalizePresetSounds, THEMES } from './domain.js?v=9';
 
 const STORAGE_KEY = 'meditation-timer.apple-pwa.v1';
 
@@ -10,8 +10,13 @@ export function loadState() {
       const selectedId = presets.some((preset) => preset.id === stored.selectedId)
         ? stored.selectedId
         : presets[0]?.id ?? null;
+      const migratedTheme = stored.theme === 'green'
+        ? 'verdant'
+        : stored.theme === 'modern'
+          ? 'light'
+          : stored.theme;
       return {
-        theme: THEMES.includes(stored.theme) ? stored.theme : 'green',
+        theme: THEMES.includes(migratedTheme) ? migratedTheme : 'verdant',
         presets,
         selectedId,
       };
@@ -20,7 +25,7 @@ export function loadState() {
     // A damaged local entry is replaced with the safe starter state.
   }
   const presets = defaultPresets();
-  return { theme: 'green', presets, selectedId: 'starter-30' };
+  return { theme: 'verdant', presets, selectedId: 'starter-30' };
 }
 
 export function saveState(state) {

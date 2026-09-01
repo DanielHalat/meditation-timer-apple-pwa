@@ -11,8 +11,18 @@ import {
   validatePreset,
 } from '../src/domain.js';
 
-test('the theme list contains the four supported visual profiles', () => {
-  assert.deepEqual(THEMES, ['green', 'light', 'dark', 'modern']);
+test('the theme list contains Light, Dark, and all seven approved color profiles', () => {
+  assert.deepEqual(THEMES, [
+    'light',
+    'dark',
+    'verdant',
+    'solar',
+    'cobalt',
+    'ember',
+    'azure',
+    'lavender',
+    'coral',
+  ]);
 });
 
 test('starter presets match the MVP', () => {
